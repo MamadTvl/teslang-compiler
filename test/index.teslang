@@ -1,0 +1,9 @@
+fc findIndex( A : array , n : numeric ) -> numeric :
+{
+    for a , i <- A :
+    {
+        if a == n :
+        return i;
+    }
+    return -1;
+}

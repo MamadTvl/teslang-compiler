@@ -1,0 +1,29 @@
+{
+  "name": "teslang-compiler",
+  "version": "0.1.0",
+  "description": "teslang compiler",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "license": "Apache-2.0",
+  "keywords": [],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "gts lint",
+    "clean": "gts clean",
+    "dev": "tsc -w",
+    "compile": "tsc",
+    "fix": "gts fix",
+    "start:lexical": "node dist/lexical-level/index.js",
+    "prepare": "npm run compile",
+    "pretest": "npm run compile",
+    "posttest": "npm run lint"
+  },
+  "devDependencies": {
+    "gts": "^3.1.0",
+    "typescript": "^4.0.3",
+    "@types/node": "^14.11.2"
+  }
+}
