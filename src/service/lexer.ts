@@ -1,9 +1,11 @@
 import { Token, TokenType } from '../types';
+import fs from 'fs';
 
 export class Lexer {
     private readonly _tokens: Token[];
     private _currentIndex: number;
-    private _source: string;
+    private readable: fs.ReadStream;
+    private _currentToken = '';
     literalRegex = /[a-zA-Z]/;
     literalRegexNext = /[a-zA-Z0-9]/;
     numberRegex = /[0-9]+/;
@@ -54,14 +56,17 @@ export class Lexer {
 
     constructor(source: string) {
         this._currentIndex = 0;
-        this._source = source;
-        this._tokens = this.tokenize();
+        this._tokens = [];
+        this.readable = fs.createReadStream(source, {
+            encoding: 'utf8',
+        });
     }
 
     private tokenize(): Token[] {
         const out: Token[] = [];
-        while (this._currentIndex < this._source.length) {
-            const currentToken = this._source[this._currentIndex];
+        this._currentIndex = 0;
+        while (this._currentIndex < this._currentToken.length) {
+            const currentToken = this._currentToken[this._currentIndex];
             // don't care about white spaces
             if (currentToken === ' ') {
                 this._currentIndex++;
@@ -144,7 +149,7 @@ export class Lexer {
         const parts = str.split('');
 
         for (let i = 0; i < parts.length; i++) {
-            if (this._source[this._currentIndex + i] !== parts[i]) {
+            if (this._currentToken[this._currentIndex + i] !== parts[i]) {
                 return false;
             }
         }
@@ -157,7 +162,7 @@ export class Lexer {
 
         while (true) {
             const nextIndex = this._currentIndex + bucket.length;
-            const nextToken = this._source[nextIndex];
+            const nextToken = this._currentToken[nextIndex];
             if (!nextToken) {
                 break;
             }
@@ -172,6 +177,39 @@ export class Lexer {
         }
 
         return bucket;
+    }
+
+    private ignoreComment(): void {
+        let chunk;
+        while (chunk !== '\n') {
+            chunk = this.readable.read(1);
+        }
+    }
+
+    public readSource(): Promise<void> {
+        // open file and read it character by character
+        return new Promise((resolve) => {
+            this.readable.on('readable', () => {
+                while (true) {
+                    let pointer;
+                    let currentToken = '';
+                    while (pointer !== ' ' && pointer !== null) {
+                        pointer = this.readable.read(1);
+                        if (pointer === '#') {
+                            this.ignoreComment();
+                        } else {
+                            pointer && (currentToken += pointer);
+                        }
+                    }
+                    if (pointer === null) {
+                        break;
+                    }
+                    this._currentToken = currentToken;
+                    this._tokens.push(...this.tokenize());
+                }
+                resolve();
+            });
+        });
     }
 
     public printTokens() {
