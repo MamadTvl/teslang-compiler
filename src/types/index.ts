@@ -1,10 +1,25 @@
 export enum TokenType {
     VariableTypeDeclaration = 'VariableTypeDeclaration',
     AssignmentOperator = 'AssignmentOperator',
+    PlusOperator = 'PlusOperator',
+    MinusOperator = 'MinusOperator',
+    MultiplyOperator = 'MultiplyOperator',
+    DivideOperator = 'DivideOperator',
+    ModulusOperator = 'ModulusOperator',
+    LessThanOperator = 'LessThanOperator',
+    LessThanOrEqualOperator = 'LessThanOrEqualOperator',
+    GreaterThanOperator = 'GreaterThanOperator',
+    GreaterThanOrEqualOperator = 'GreaterThanOrEqualOperator',
+    EqualOperator = 'EqualOperator',
+    NotEqualOperator = 'NotEqualOperator',
+    AndOperator = 'AndOperator',
+    OrOperator = 'OrOperator',
+    NotOperator = 'NotOperator',
     Literal = 'Literal',
-    Numeric = 'Numeric',
-    Array = 'Array',
+    NumericType = 'NumericType',
+    ArrayType = 'ArrayType',
     None = 'None',
+    ArrayConstructor = 'ArrayConstructor',
     LineBreak = 'LineBreak',
     FunctionDeclaration = 'FunctionDeclaration',
     StartBlock = 'StartBlock',
@@ -23,9 +38,9 @@ export enum TokenType {
     Return = 'Return',
     Arrow = 'Arrow',
     ReverseArrow = 'ReverseArrow',
-    Operator = 'Operator',
     Function = 'Function',
-    Boolean = 'Boolean',
+    True = 'True',
+    False = 'False',
     String = 'String',
     Number = 'Number',
 }
@@ -44,9 +59,10 @@ export type Token =
     | TokenValueNode<TokenType.Number>
     | TokenNode<TokenType.AssignmentOperator>
     | TokenNode<TokenType.LineBreak>
-    | TokenNode<TokenType.Numeric>
-    | TokenNode<TokenType.Array>
+    | TokenNode<TokenType.NumericType>
+    | TokenNode<TokenType.ArrayType>
     | TokenNode<TokenType.None>
+    | TokenNode<TokenType.ArrayConstructor>
     | TokenNode<TokenType.VariableTypeDeclaration>
     | TokenNode<TokenType.FunctionDeclaration>
     | TokenNode<TokenType.StartBlock>
@@ -65,6 +81,21 @@ export type Token =
     | TokenNode<TokenType.Return>
     | TokenNode<TokenType.Arrow>
     | TokenNode<TokenType.ReverseArrow>
-    | TokenNode<TokenType.Operator>
-    | TokenNode<TokenType.Function>
-    | TokenNode<TokenType.Boolean>;
+    | TokenNode<TokenType.AssignmentOperator>
+    | TokenNode<TokenType.PlusOperator>
+    | TokenNode<TokenType.MinusOperator>
+    | TokenNode<TokenType.MultiplyOperator>
+    | TokenNode<TokenType.DivideOperator>
+    | TokenNode<TokenType.ModulusOperator>
+    | TokenNode<TokenType.LessThanOperator>
+    | TokenNode<TokenType.LessThanOrEqualOperator>
+    | TokenNode<TokenType.GreaterThanOperator>
+    | TokenNode<TokenType.GreaterThanOrEqualOperator>
+    | TokenNode<TokenType.EqualOperator>
+    | TokenNode<TokenType.NotEqualOperator>
+    | TokenNode<TokenType.AndOperator>
+    | TokenNode<TokenType.OrOperator>
+    | TokenNode<TokenType.NotOperator>
+    | TokenNode<TokenType.True>
+    | TokenNode<TokenType.False>
+    | TokenNode<TokenType.Function>;
