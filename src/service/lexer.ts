@@ -1,11 +1,13 @@
-import { Token, TokenType } from '../types';
+import { TokenType } from '../types';
+import type { Token } from '../types';
 import fs from 'fs';
 
 export class Lexer {
-    private readonly _tokens: Token[];
     private _currentIndex: number;
-    private readable: fs.ReadStream;
+    public readable: fs.ReadStream;
     private _currentToken = '';
+    public column: number;
+    public line: number;
     literalRegex = /[a-zA-Z]/;
     literalRegexNext = /[a-zA-Z0-9]/;
     numberRegex = /[0-9]+/;
@@ -20,20 +22,20 @@ export class Lexer {
         { key: '->', value: { type: TokenType.Arrow } },
         { key: '<-', value: { type: TokenType.ReverseArrow } },
         { key: '=', value: { type: TokenType.AssignmentOperator } },
-        { key: '+', value: { type: TokenType.Operator } },
-        { key: '-', value: { type: TokenType.Operator } },
-        { key: '*', value: { type: TokenType.Operator } },
-        { key: '/', value: { type: TokenType.Operator } },
-        { key: '%', value: { type: TokenType.Operator } },
-        { key: '<', value: { type: TokenType.Operator } },
-        { key: '>', value: { type: TokenType.Operator } },
-        { key: '<=', value: { type: TokenType.Operator } },
-        { key: '>=', value: { type: TokenType.Operator } },
-        { key: '==', value: { type: TokenType.Operator } },
-        { key: '!=', value: { type: TokenType.Operator } },
-        { key: 'and', value: { type: TokenType.Operator } },
-        { key: 'or', value: { type: TokenType.Operator } },
-        { key: 'not', value: { type: TokenType.Operator } },
+        { key: '+', value: { type: TokenType.PlusOperator } },
+        { key: '-', value: { type: TokenType.MinusOperator } },
+        { key: '*', value: { type: TokenType.MultiplyOperator } },
+        { key: '/', value: { type: TokenType.DivideOperator } },
+        { key: '%', value: { type: TokenType.ModulusOperator } },
+        { key: '<', value: { type: TokenType.LessThanOperator } },
+        { key: '>', value: { type: TokenType.GreaterThanOperator } },
+        { key: '<=', value: { type: TokenType.LessThanOrEqualOperator } },
+        { key: '>=', value: { type: TokenType.GreaterThanOrEqualOperator } },
+        { key: '==', value: { type: TokenType.EqualOperator } },
+        { key: '!=', value: { type: TokenType.NotEqualOperator } },
+        { key: 'and', value: { type: TokenType.AndOperator } },
+        { key: 'or', value: { type: TokenType.OrOperator } },
+        { key: 'not', value: { type: TokenType.NotOperator } },
         { key: '(', value: { type: TokenType.OpenParen } },
         { key: ')', value: { type: TokenType.CloseParen } },
         { key: ',', value: { type: TokenType.Comma } },
@@ -41,22 +43,26 @@ export class Lexer {
         { key: ';', value: { type: TokenType.SemiColon } },
         { key: '{', value: { type: TokenType.StartBlock } },
         { key: '}', value: { type: TokenType.EndBlock } },
+        { key: '[', value: { type: TokenType.StartArray } },
+        { key: ']', value: { type: TokenType.EndArray } },
         { key: 'for', value: { type: TokenType.For } },
         { key: 'loop', value: { type: TokenType.Loop } },
         { key: 'if', value: { type: TokenType.If } },
         { key: 'notif', value: { type: TokenType.Else } },
         { key: 'fc', value: { type: TokenType.Function } },
         { key: 'return', value: { type: TokenType.Return } },
-        { key: 'true', value: { type: TokenType.Boolean } },
-        { key: 'false', value: { type: TokenType.Boolean } },
-        { key: 'array', value: { type: TokenType.Array } },
+        { key: 'true', value: { type: TokenType.True } },
+        { key: 'false', value: { type: TokenType.False } },
+        { key: 'array', value: { type: TokenType.ArrayType } },
         { key: 'none', value: { type: TokenType.None } },
-        { key: 'numeric', value: { type: TokenType.Numeric } },
+        { key: 'numeric', value: { type: TokenType.NumericType } },
+        { key: 'Array', value: { type: TokenType.ArrayConstructor } },
     ];
 
     constructor(source: string) {
         this._currentIndex = 0;
-        this._tokens = [];
+        this.column = 1;
+        this.line = 1;
         this.readable = fs.createReadStream(source, {
             encoding: 'utf8',
         });
@@ -112,7 +118,6 @@ export class Lexer {
                     type: TokenType.Literal,
                     value: bucket.join(''),
                 });
-                console.log(bucket.join(''));
 
                 this._currentIndex += bucket.length;
 
@@ -127,7 +132,6 @@ export class Lexer {
                     value: bucket.join(''),
                 });
                 this._currentIndex += bucket.length;
-                console.log(bucket.join(''));
 
                 continue;
             }
@@ -147,13 +151,11 @@ export class Lexer {
 
     private lookaheadString(str: string): boolean {
         const parts = str.split('');
-
         for (let i = 0; i < parts.length; i++) {
             if (this._currentToken[this._currentIndex + i] !== parts[i]) {
                 return false;
             }
         }
-        !['\n', '\t', '\r'].includes(str) && console.log(str);
         return true;
     }
 
@@ -184,37 +186,56 @@ export class Lexer {
         while (chunk !== '\n') {
             chunk = this.readable.read(1);
         }
+        this.line++;
+        this.column = 1;
     }
 
-    public readSource(): Promise<void> {
-        // open file and read it character by character
-        return new Promise((resolve) => {
-            this.readable.on('readable', () => {
-                while (true) {
-                    let pointer;
-                    let currentToken = '';
-                    while (pointer !== ' ' && pointer !== null) {
-                        pointer = this.readable.read(1);
-                        if (pointer === '#') {
-                            this.ignoreComment();
-                        } else {
-                            pointer && (currentToken += pointer);
-                        }
-                    }
-                    if (pointer === null) {
-                        break;
-                    }
-                    this._currentToken = currentToken;
-                    this._tokens.push(...this.tokenize());
-                }
-                resolve();
-            });
-        });
-    }
-
-    public printTokens() {
-        for (const token of this._tokens) {
-            console.table(token);
+    private calculateColumn(token: Token): void {
+        // if token is in tokenStringMap use the key length
+        // otherwise use the token value length
+        if (
+            token.type === TokenType.Literal ||
+            token.type === TokenType.String ||
+            token.type === TokenType.Number
+        ) {
+            this.column += token.value.length;
+        } else {
+            this.column +=
+                this.tokenStringMap.find((t) => t.value.type === token.type)
+                    ?.key.length ?? 1;
         }
+    }
+
+    private tempTokens: Token[] = [];
+    public dropToken(): Promise<Token | undefined> {
+        return new Promise((resolve) => {
+            let tokens: Token[] = [];
+            while (true) {
+                let pointer;
+                let currentToken = '';
+                while (pointer !== ' ' && pointer !== null) {
+                    pointer = this.readable.read(1);
+                    if (pointer === '#') {
+                        this.ignoreComment();
+                    } else {
+                        pointer && (currentToken += pointer);
+                    }
+                }
+                this._currentToken = currentToken;
+                tokens = this.tokenize();
+                if (tokens.length > 0 || pointer === null) {
+                    break;
+                }
+            }
+            const resolveToken = this.tempTokens.shift() || tokens.shift();
+            this.tempTokens.push(...tokens);
+            if (resolveToken?.type === TokenType.LineBreak) {
+                this.line++;
+                this.column = 1;
+            } else if (resolveToken) {
+                this.calculateColumn(resolveToken);
+            }
+            resolve(resolveToken);
+        });
     }
 }

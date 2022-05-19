@@ -8,7 +8,7 @@ const main = async () => {
             if (!token) {
                 break;
             }
-            console.log(token);
+            console.log(token, lexer.line, lexer.column);
         }
     });
 };
