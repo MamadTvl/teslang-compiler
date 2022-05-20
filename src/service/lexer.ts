@@ -36,6 +36,7 @@ export class Lexer {
         { key: 'and', value: { type: TokenType.AndOperator } },
         { key: 'or', value: { type: TokenType.OrOperator } },
         { key: 'not', value: { type: TokenType.NotOperator } },
+        { key: '?', value: { type: TokenType.TernaryIfOperator } },
         { key: '(', value: { type: TokenType.OpenParen } },
         { key: ')', value: { type: TokenType.CloseParen } },
         { key: ',', value: { type: TokenType.Comma } },
@@ -56,7 +57,11 @@ export class Lexer {
         { key: 'array', value: { type: TokenType.ArrayType } },
         { key: 'none', value: { type: TokenType.None } },
         { key: 'numeric', value: { type: TokenType.NumericType } },
-        { key: 'Array', value: { type: TokenType.ArrayConstructor } },
+        { key: 'Array', value: { type: TokenType.ArrayFunction } },
+        { key: 'print', value: { type: TokenType.PrintFunction } },
+        { key: 'input', value: { type: TokenType.InputFunction } },
+        { key: 'len', value: { type: TokenType.LengthFunction } },
+        { key: 'exit', value: { type: TokenType.ExitFunction } },
     ];
 
     constructor(source: string) {
@@ -207,35 +212,33 @@ export class Lexer {
     }
 
     private tempTokens: Token[] = [];
-    public dropToken(): Promise<Token | undefined> {
-        return new Promise((resolve) => {
-            let tokens: Token[] = [];
-            while (true) {
-                let pointer;
-                let currentToken = '';
-                while (pointer !== ' ' && pointer !== null) {
-                    pointer = this.readable.read(1);
-                    if (pointer === '#') {
-                        this.ignoreComment();
-                    } else {
-                        pointer && (currentToken += pointer);
-                    }
-                }
-                this._currentToken = currentToken;
-                tokens = this.tokenize();
-                if (tokens.length > 0 || pointer === null) {
-                    break;
+    public dropToken(): Token | undefined {
+        let tokens: Token[] = [];
+        while (true) {
+            let pointer;
+            let currentToken = '';
+            while (pointer !== ' ' && pointer !== null) {
+                pointer = this.readable.read(1);
+                if (pointer === '#') {
+                    this.ignoreComment();
+                } else {
+                    pointer && (currentToken += pointer);
                 }
             }
-            const resolveToken = this.tempTokens.shift() || tokens.shift();
-            this.tempTokens.push(...tokens);
-            if (resolveToken?.type === TokenType.LineBreak) {
-                this.line++;
-                this.column = 1;
-            } else if (resolveToken) {
-                this.calculateColumn(resolveToken);
+            this._currentToken = currentToken;
+            tokens = this.tokenize();
+            if (tokens.length > 0 || pointer === null) {
+                break;
             }
-            resolve(resolveToken);
-        });
+        }
+        const token = this.tempTokens.shift() || tokens.shift();
+        this.tempTokens.push(...tokens);
+        if (token?.type === TokenType.LineBreak) {
+            this.line++;
+            this.column = 1;
+        } else if (token) {
+            this.calculateColumn(token);
+        }
+        return token;
     }
 }

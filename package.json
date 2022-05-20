@@ -17,6 +17,7 @@
     "compile": "tsc",
     "fix": "gts fix",
     "start:lexical": "node dist/lexical-level/index.js",
+    "start:syntax": "node dist/syntax-level/index.js",
     "prepare": "npm run compile",
     "pretest": "npm run compile",
     "posttest": "npm run lint"

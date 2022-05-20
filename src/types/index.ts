@@ -19,7 +19,6 @@ export enum TokenType {
     NumericType = 'NumericType',
     ArrayType = 'ArrayType',
     None = 'None',
-    ArrayConstructor = 'ArrayConstructor',
     LineBreak = 'LineBreak',
     FunctionDeclaration = 'FunctionDeclaration',
     StartBlock = 'StartBlock',
@@ -43,6 +42,12 @@ export enum TokenType {
     False = 'False',
     String = 'String',
     Number = 'Number',
+    ArrayFunction = 'ArrayFunction',
+    PrintFunction = 'PrintFunction',
+    InputFunction = 'InputFunction',
+    LengthFunction = 'LengthFunction',
+    ExitFunction = 'ExitFunction',
+    TernaryIfOperator = 'TernaryIfOperator',
 }
 
 export interface TokenNode<T extends TokenType> {
@@ -62,7 +67,7 @@ export type Token =
     | TokenNode<TokenType.NumericType>
     | TokenNode<TokenType.ArrayType>
     | TokenNode<TokenType.None>
-    | TokenNode<TokenType.ArrayConstructor>
+    | TokenNode<TokenType.ArrayFunction>
     | TokenNode<TokenType.VariableTypeDeclaration>
     | TokenNode<TokenType.FunctionDeclaration>
     | TokenNode<TokenType.StartBlock>
@@ -98,4 +103,9 @@ export type Token =
     | TokenNode<TokenType.NotOperator>
     | TokenNode<TokenType.True>
     | TokenNode<TokenType.False>
-    | TokenNode<TokenType.Function>;
+    | TokenNode<TokenType.Function>
+    | TokenNode<TokenType.PrintFunction>
+    | TokenNode<TokenType.InputFunction>
+    | TokenNode<TokenType.ExitFunction>
+    | TokenNode<TokenType.LengthFunction>
+    | TokenNode<TokenType.TernaryIfOperator>;
