@@ -3,11 +3,11 @@ import type { Token } from '../types';
 import fs from 'fs';
 
 export class Lexer {
-    private _currentIndex: number;
     public readable: fs.ReadStream;
-    private _currentToken = '';
+    private _currentToken: string | null = '';
     public column: number;
     public line: number;
+    private prvChars: string[] = [];
     literalRegex = /[a-zA-Z]/;
     literalRegexNext = /[a-zA-Z0-9]/;
     numberRegex = /[0-9]+/;
@@ -73,127 +73,102 @@ export class Lexer {
             encoding: 'utf8',
         });
     }
-
-    private tokenize(): Token[] {
-        const out: Token[] = [];
-        this._currentIndex = 0;
-        while (this._currentIndex < this._currentToken.length) {
-            const currentToken = this._currentToken[this._currentIndex];
-            // don't care about white spaces
-            if (currentToken === ' ') {
-                this.column++;
-                this._currentIndex++;
-                continue;
-            }
-
-            // dont care about line breaks
-            if (['\n', '\r', '\t'].includes(currentToken)) {
-                this.line++;
-                this.column = 1;
-                this._currentIndex++;
-                continue;
-            }
-
-            let didMatch = false;
-            for (const { key, value } of this.tokenStringMap) {
-                if (!this.lookaheadString(key)) {
-                    continue;
-                }
-                out.push(value);
-                this._currentIndex += key.length;
-
-                didMatch = true;
-            }
-
-            if (didMatch) continue;
-
-            // check if we get to a string with '
-            if (currentToken === "'") {
-                this._currentIndex++;
-
-                const bucket = this.lookahead(/[^']/);
-
-                out.push({
-                    type: TokenType.String,
-                    value: bucket.join(''),
-                });
-
-                this._currentIndex += bucket.length + 1;
-
-                continue;
-            }
-            // check if we get to a literal
-            if (this.literalRegex.test(currentToken)) {
-                const bucket = this.lookahead(
-                    this.literalRegex,
-                    this.literalRegexNext,
-                );
-
-                out.push({
-                    type: TokenType.Literal,
-                    value: bucket.join(''),
-                });
-
-                this._currentIndex += bucket.length;
-
-                continue;
-            }
-            // check if we get to a number
-            if (this.numberRegex.test(currentToken)) {
-                const bucket = this.lookahead(this.numberRegex);
-
-                out.push({
-                    type: TokenType.Number,
-                    value: bucket.join(''),
-                });
-                this._currentIndex += bucket.length;
-
-                continue;
-            }
-            // check if we get to a comment
-            if (this.commentRegex.test(currentToken)) {
-                const bucket = this.lookahead(this.commentRegex);
-
-                this._currentIndex += bucket.length;
-
-                continue;
-            }
-            // if we get to this point, we have a syntax error
-            throw new Error(`Syntax Error: ${currentToken}`);
+    private temp = '';
+    private tokenize(): Token | null | undefined {
+        this._currentToken = this.read();
+        if (!this._currentToken) {
+            return undefined;
         }
-        return out;
+        // don't care about white spaces
+        if (this._currentToken === ' ') {
+            this.column++;
+            this._currentIndex++;
+            return null;
+        }
+        if (this._currentToken === '#') {
+            this.ignoreComment();
+            return null;
+        }
+
+        // dont care about line breaks
+        if (
+            this._currentToken === '\n' ||
+            this._currentToken === '\r' ||
+            this._currentToken === '\t'
+        ) {
+            this.line++;
+            this.column = 1;
+            this._currentIndex++;
+            return null;
+        }
+        this.unread(this._currentToken);
+
+        for (const { key, value } of this.tokenStringMap) {
+            if (!this.lookaheadString(key)) {
+                continue;
+            }
+
+            this._currentIndex += key.length;
+            return value;
+        }
+        if (this._currentToken && this.literalRegex.test(this._currentToken)) {
+            const result = this.lookahead(
+                this.literalRegex,
+                this.literalRegexNext,
+            );
+            return {
+                type: TokenType.Literal,
+                value: result.join(''),
+            };
+        }
+        // check if we get to a number
+        if (this._currentToken && this.numberRegex.test(this._currentToken)) {
+            const result = this.lookahead(this.numberRegex);
+            return {
+                type: TokenType.Number,
+                value: result.join(''),
+            };
+        }
+        return null;
     }
 
-    private lookaheadString(str: string): boolean {
-        const parts = str.split('');
-        if (parts.length !== str.length) {
-            return false;
-        }
-        for (let i = 0; i < parts.length; i++) {
-            if (this._currentToken[this._currentIndex + i] !== parts[i]) {
-                return false;
+    private lookaheadString(key: string): boolean {
+        // check key char by char if it matches return true else unread()
+        let token = this.read() as string;
+        if (this._currentToken) {
+            for (let i = 0; i < key.length; i++) {
+                if (token[i] === key[i]) {
+                    if (i !== key.length - 1) {
+                        token += this.read() as string;
+                    }
+                } else {
+                    this.unread(token);
+                    return false;
+                }
             }
+        } else {
+            return false;
         }
         return true;
     }
 
     private lookahead(match: RegExp, matchNext?: RegExp): string[] {
-        const bucket: string[] = [];
+        const bucket: string[] = [this.read() as string];
 
         while (true) {
-            const nextIndex = this._currentIndex + bucket.length;
-            const nextToken = this._currentToken[nextIndex];
-            if (!nextToken) {
+            const nextChar = this.read();
+            if (!nextChar) {
                 break;
             }
             let m: string | RegExp = match;
             if (matchNext && bucket.length) {
                 m = matchNext;
             }
-            if (m && !m.test(nextToken)) {
+            if (m && !m.test(nextChar)) {
+                this.unread(nextChar);
                 break;
             }
-            bucket.push(nextToken);
+            bucket.push(nextChar);
         }
 
         return bucket;
@@ -202,7 +177,7 @@ export class Lexer {
     private ignoreComment(): void {
         let chunk;
         while (chunk !== '\n') {
-            chunk = this.readable.read(1);
+            chunk = this.read();
         }
         this.line++;
         this.column = 1;
@@ -224,29 +199,26 @@ export class Lexer {
         }
     }
 
-    private tempTokens: Token[] = [];
+    private unread(str: string): void {
+        this.prvChars.unshift(...str.split(''));
+    }
+
+    private read(): string | null {
+        return this.prvChars.length > 0
+            ? this.prvChars.shift()
+            : this.readable.read(1);
+    }
+
     public dropToken(): Token | undefined {
-        let tokens: Token[] = [];
         while (true) {
-            let pointer;
-            let currentToken = '';
-            while (pointer !== ' ' && pointer !== null) {
-                pointer = this.readable.read(1);
-                if (pointer === '#') {
-                    this.ignoreComment();
-                } else {
-                    pointer && (currentToken += pointer);
-                }
-            }
-            this._currentToken = currentToken;
-            tokens = this.tokenize();
-            if (tokens.length > 0 || pointer === null) {
+            const token = this.tokenize();
+            if (token) {
+                this.calculateColumn(token);
+                return token;
+            } else if (token === undefined) {
                 break;
             }
         }
-        const token = this.tempTokens.shift() || tokens.shift();
-        this.tempTokens.push(...tokens);
-        token && this.calculateColumn(token);
-        return token;
+        return undefined;
     }
 }
