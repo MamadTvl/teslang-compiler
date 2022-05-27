@@ -16,11 +16,36 @@ export class Lexer {
         key: string;
         value: Token;
     }> = [
+        { key: 'numeric', value: { type: TokenType.NumericType } },
+        { key: 'return', value: { type: TokenType.Return } },
+        { key: 'false', value: { type: TokenType.False } },
+        { key: 'array', value: { type: TokenType.ArrayType } },
+        { key: 'Array', value: { type: TokenType.ArrayFunction } },
+        { key: 'notif', value: { type: TokenType.Else } },
+        { key: 'print', value: { type: TokenType.PrintFunction } },
+        { key: 'input', value: { type: TokenType.InputFunction } },
+        { key: 'loop', value: { type: TokenType.Loop } },
+        { key: 'true', value: { type: TokenType.True } },
+        { key: 'none', value: { type: TokenType.None } },
+        { key: 'exit', value: { type: TokenType.ExitFunction } },
+        { key: 'and', value: { type: TokenType.AndOperator } },
+        { key: 'or', value: { type: TokenType.OrOperator } },
+        { key: 'not', value: { type: TokenType.NotOperator } },
+        { key: 'for', value: { type: TokenType.For } },
+        { key: 'len', value: { type: TokenType.LengthFunction } },
+        { key: 'let', value: { type: TokenType.DefineVariableOperator } },
+        { key: 'if', value: { type: TokenType.If } },
+        { key: 'fc', value: { type: TokenType.Function } },
+        { key: '<=', value: { type: TokenType.LessThanOrEqualOperator } },
+        { key: '>=', value: { type: TokenType.GreaterThanOrEqualOperator } },
+        { key: '==', value: { type: TokenType.EqualOperator } },
+        { key: '!=', value: { type: TokenType.NotEqualOperator } },
+        { key: '->', value: { type: TokenType.Arrow } },
+        { key: '<-', value: { type: TokenType.ReverseArrow } },
         { key: '\n', value: { type: TokenType.LineBreak } },
         { key: '\t', value: { type: TokenType.LineBreak } },
         { key: '\r', value: { type: TokenType.LineBreak } },
-        { key: '->', value: { type: TokenType.Arrow } },
-        { key: '<-', value: { type: TokenType.ReverseArrow } },
+        { key: '>', value: { type: TokenType.GreaterThanOperator } },
         { key: '=', value: { type: TokenType.AssignmentOperator } },
         { key: '+', value: { type: TokenType.PlusOperator } },
         { key: '-', value: { type: TokenType.MinusOperator } },
@@ -28,14 +53,6 @@ export class Lexer {
         { key: '/', value: { type: TokenType.DivideOperator } },
         { key: '%', value: { type: TokenType.ModulusOperator } },
         { key: '<', value: { type: TokenType.LessThanOperator } },
-        { key: '>', value: { type: TokenType.GreaterThanOperator } },
-        { key: '<=', value: { type: TokenType.LessThanOrEqualOperator } },
-        { key: '>=', value: { type: TokenType.GreaterThanOrEqualOperator } },
-        { key: '==', value: { type: TokenType.EqualOperator } },
-        { key: '!=', value: { type: TokenType.NotEqualOperator } },
-        { key: 'and', value: { type: TokenType.AndOperator } },
-        { key: 'or', value: { type: TokenType.OrOperator } },
-        { key: 'not', value: { type: TokenType.NotOperator } },
         { key: '?', value: { type: TokenType.TernaryIfOperator } },
         { key: '(', value: { type: TokenType.OpenParen } },
         { key: ')', value: { type: TokenType.CloseParen } },
@@ -46,22 +63,6 @@ export class Lexer {
         { key: '}', value: { type: TokenType.EndBlock } },
         { key: '[', value: { type: TokenType.StartArray } },
         { key: ']', value: { type: TokenType.EndArray } },
-        { key: 'for', value: { type: TokenType.For } },
-        { key: 'loop', value: { type: TokenType.Loop } },
-        { key: 'if', value: { type: TokenType.If } },
-        { key: 'notif', value: { type: TokenType.Else } },
-        { key: 'fc', value: { type: TokenType.Function } },
-        { key: 'return', value: { type: TokenType.Return } },
-        { key: 'true', value: { type: TokenType.True } },
-        { key: 'false', value: { type: TokenType.False } },
-        { key: 'array', value: { type: TokenType.ArrayType } },
-        { key: 'none', value: { type: TokenType.None } },
-        { key: 'numeric', value: { type: TokenType.NumericType } },
-        { key: 'Array', value: { type: TokenType.ArrayFunction } },
-        { key: 'print', value: { type: TokenType.PrintFunction } },
-        { key: 'input', value: { type: TokenType.InputFunction } },
-        { key: 'len', value: { type: TokenType.LengthFunction } },
-        { key: 'exit', value: { type: TokenType.ExitFunction } },
     ];
 
     constructor(source: string) {
@@ -80,6 +81,15 @@ export class Lexer {
             const currentToken = this._currentToken[this._currentIndex];
             // don't care about white spaces
             if (currentToken === ' ') {
+                this.column++;
+                this._currentIndex++;
+                continue;
+            }
+
+            // dont care about line breaks
+            if (['\n', '\r', '\t'].includes(currentToken)) {
+                this.line++;
+                this.column = 1;
                 this._currentIndex++;
                 continue;
             }
@@ -156,6 +166,9 @@ export class Lexer {
 
     private lookaheadString(str: string): boolean {
         const parts = str.split('');
+        if (parts.length !== str.length) {
+            return false;
+        }
         for (let i = 0; i < parts.length; i++) {
             if (this._currentToken[this._currentIndex + i] !== parts[i]) {
                 return false;
@@ -233,12 +246,7 @@ export class Lexer {
         }
         const token = this.tempTokens.shift() || tokens.shift();
         this.tempTokens.push(...tokens);
-        if (token?.type === TokenType.LineBreak) {
-            this.line++;
-            this.column = 1;
-        } else if (token) {
-            this.calculateColumn(token);
-        }
+        token && this.calculateColumn(token);
         return token;
     }
 }

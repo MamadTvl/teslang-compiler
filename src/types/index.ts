@@ -48,6 +48,7 @@ export enum TokenType {
     LengthFunction = 'LengthFunction',
     ExitFunction = 'ExitFunction',
     TernaryIfOperator = 'TernaryIfOperator',
+    DefineVariableOperator = 'DefineVariableOperator',
 }
 
 export interface TokenNode<T extends TokenType> {
@@ -108,4 +109,5 @@ export type Token =
     | TokenNode<TokenType.InputFunction>
     | TokenNode<TokenType.ExitFunction>
     | TokenNode<TokenType.LengthFunction>
-    | TokenNode<TokenType.TernaryIfOperator>;
+    | TokenNode<TokenType.TernaryIfOperator>
+    | TokenNode<TokenType.DefineVariableOperator>;

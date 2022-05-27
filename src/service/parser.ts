@@ -2,7 +2,7 @@ import { Token, TokenType } from '../types';
 import { ParserError } from './error';
 import { Lexer } from './lexer';
 import { SymbolKey, SymbolValue } from './symbol-table';
-type parserReturnType = Token | null | void;
+type parserReturnType = Token | boolean;
 // todo: remember to before call any function drop token (fix type function)
 export class Parser {
     private currentToken: Token | undefined;
@@ -16,7 +16,7 @@ export class Parser {
 
     public type(): parserReturnType {
         if (!this.currentToken) {
-            return null;
+            return false;
         }
         if (
             [
@@ -27,13 +27,13 @@ export class Parser {
         ) {
             return this.currentToken;
         } else {
-            throw this.error('Expected illegal type');
+            throw this.error('Expected correct type');
         }
     }
 
     public clist(): parserReturnType {
         if (!this.currentToken) {
-            return;
+            return false;
         }
         this.expr();
         this.currentToken = this.lexer.dropToken();
@@ -41,15 +41,16 @@ export class Parser {
             this.currentToken = this.lexer.dropToken();
             this.clist();
         }
-        return;
+        return true;
     }
 
     public defvar(): parserReturnType {
         if (!this.currentToken) {
-            return;
+            return false;
         }
         if (this.currentToken.type === TokenType.Literal) {
-            const value = this.currentToken.value;
+            const identifier = this.currentToken.value;
+            console.log(identifier);
             this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
@@ -60,32 +61,33 @@ export class Parser {
             this.currentToken = this.lexer.dropToken();
             this.type();
             this.currentToken = this.lexer.dropToken();
-            if (this.currentToken?.type === TokenType.Comma) {
+            if (this.currentToken?.type === TokenType.AssignmentOperator) {
                 this.currentToken = this.lexer.dropToken();
-                this.flist();
+                this.expr();
             }
-            return;
+            return true;
         }
+        return false;
     }
 
     public expr(): parserReturnType {
         if (!this.currentToken) {
-            return;
+            return false;
         }
         if (this.currentToken.type === TokenType.NotOperator) {
             this.currentToken = this.lexer.dropToken();
             this.expr();
-            return;
+            return true;
         }
         if (this.currentToken.type === TokenType.PlusOperator) {
             this.currentToken = this.lexer.dropToken();
             this.expr();
-            return;
+            return true;
         }
         if (this.currentToken.type === TokenType.MinusOperator) {
             this.currentToken = this.lexer.dropToken();
             this.expr();
-            return;
+            return true;
         }
 
         if (this.currentToken.type === TokenType.StartArray) {
@@ -99,7 +101,7 @@ export class Parser {
                 throw this.error('Expected "]"');
             }
             this.currentToken = this.lexer.dropToken();
-            return;
+            return true;
         }
 
         if (this.currentToken.type === TokenType.Literal) {
@@ -115,19 +117,19 @@ export class Parser {
                 this.currentToken = this.lexer.dropToken();
                 if (
                     !this.currentToken ||
-                    this.currentToken?.type === TokenType.CloseParen
+                    this.currentToken?.type !== TokenType.CloseParen
                 ) {
                     throw this.error('Expected ")"');
                 }
             }
-            return;
+            return this.expr();
         }
         if (this.currentToken.type === TokenType.Number) {
             const value = this.currentToken.value;
             this.currentToken = this.lexer.dropToken();
-            return;
+            return true;
         }
-        this.expr();
+        let jobIsDone = false;
         while (
             [
                 TokenType.MinusOperator,
@@ -146,6 +148,7 @@ export class Parser {
         ) {
             this.currentToken = this.lexer.dropToken();
             this.expr();
+            jobIsDone = true;
             if (!this.currentToken) {
                 break;
             }
@@ -153,7 +156,7 @@ export class Parser {
         if (this.currentToken?.type === TokenType.StartArray) {
             this.currentToken = this.lexer.dropToken();
             this.expr();
-            this.currentToken = this.lexer.dropToken();
+            // this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.EndArray
@@ -161,7 +164,7 @@ export class Parser {
                 throw this.error('Expected "]"');
             }
             this.currentToken = this.lexer.dropToken();
-            return;
+            return true;
         }
         if (this.currentToken?.type === TokenType.TernaryIfOperator) {
             this.currentToken = this.lexer.dropToken();
@@ -175,37 +178,48 @@ export class Parser {
             }
             this.currentToken = this.lexer.dropToken();
             this.expr();
-            return;
+            return true;
         }
+        return jobIsDone || false;
     }
 
     public stmt(): parserReturnType {
         if (!this.currentToken) {
-            return;
+            return false;
         }
+        // what we do when we have a literal
         if (this.expr()) {
             if (this.currentToken.type !== TokenType.SemiColon) {
                 throw this.error('Expected ";"');
             }
-            return;
+            this.currentToken = this.lexer.dropToken();
+            return true;
         }
-        if (this.defvar()) {
-            if (this.currentToken.type !== TokenType.SemiColon) {
+        if (this.currentToken.type === TokenType.DefineVariableOperator) {
+            this.currentToken = this.lexer.dropToken();
+            this.defvar();
+            if (
+                !this.currentToken ||
+                this.currentToken.type !== TokenType.SemiColon
+            ) {
                 throw this.error('Expected ";"');
             }
-            return;
+            this.currentToken = this.lexer.dropToken();
+            return true;
         }
         if (this.currentToken.type === TokenType.If) {
-            this.expr();
             this.currentToken = this.lexer.dropToken();
+            this.expr();
+            // this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.Colon
             ) {
                 throw this.error('Expected ":"');
             }
+            this.currentToken = this.lexer.dropToken();
             if (this.stmt()) {
-                return;
+                return true;
             }
             this.currentToken = this.lexer.dropToken();
             if (
@@ -222,9 +236,7 @@ export class Parser {
                 throw this.error('Expected ":"');
             }
             this.currentToken = this.lexer.dropToken();
-            if (this.stmt()) {
-                this.stmt();
-            }
+            this.stmt();
         }
         if (this.currentToken?.type === TokenType.Loop) {
             this.expr();
@@ -236,9 +248,7 @@ export class Parser {
                 throw this.error('Expected ":"');
             }
             this.currentToken = this.lexer.dropToken();
-            if (this.stmt()) {
-                return;
-            }
+            return this.stmt();
         }
         if (this.currentToken?.type === TokenType.For) {
             this.currentToken = this.lexer.dropToken();
@@ -273,7 +283,7 @@ export class Parser {
             }
             this.currentToken = this.lexer.dropToken();
             this.expr();
-            this.currentToken = this.lexer.dropToken();
+            // this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.Colon
@@ -281,48 +291,51 @@ export class Parser {
                 throw this.error('Expected ":"');
             }
             this.currentToken = this.lexer.dropToken();
-            if (this.stmt()) {
-                return;
-            }
+            return this.stmt();
         }
         if (this.currentToken?.type === TokenType.Return) {
             this.currentToken = this.lexer.dropToken();
             this.expr();
-            this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.SemiColon
             ) {
                 throw this.error('Expected ";"');
             }
+            this.currentToken = this.lexer.dropToken();
+            return true;
         }
         if (this.currentToken?.type === TokenType.StartBlock) {
             this.currentToken = this.lexer.dropToken();
             this.body();
-            this.currentToken = this.lexer.dropToken();
+            // this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
-                this.currentToken?.type === TokenType.EndBlock
+                this.currentToken?.type !== TokenType.EndBlock
             ) {
                 throw this.error('Expected "}"');
             }
-            return;
+            this.currentToken = this.lexer.dropToken();
+            // todo: idk what should be returned here yet
+            return true;
         }
-        this.func();
+        return this.func();
     }
 
     public body(): parserReturnType {
         if (!this.currentToken) {
-            return;
+            return false;
         }
-        this.stmt();
-        this.body();
-        throw this.error('Expected "}"');
+        while (this.stmt()) {
+            console.log(this.currentToken);
+            this.body();
+        }
+        return true;
     }
 
     public flist(): parserReturnType {
         if (!this.currentToken) {
-            return null;
+            return false;
         }
         let isCommaNext = false;
         do {
@@ -351,7 +364,7 @@ export class Parser {
                 break;
             }
         } while (isCommaNext);
-        return;
+        return true;
     }
 
     public func(): parserReturnType {
@@ -364,6 +377,7 @@ export class Parser {
                 throw this.error('Expected "identifier"');
             }
             const funcName = this.currentToken.value;
+            console.log(funcName);
             this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
@@ -387,38 +401,49 @@ export class Parser {
                 throw this.error('Expected "->"');
             }
             this.currentToken = this.lexer.dropToken();
-            this.type();
+            console.log(this.type());
+            this.currentToken = this.lexer.dropToken();
+            if (
+                !this.currentToken ||
+                this.currentToken.type !== TokenType.Colon
+            ) {
+                throw this.error('Expected ":"');
+            }
             this.currentToken = this.lexer.dropToken();
             if (this.currentToken) {
                 if (this.currentToken.type === TokenType.StartBlock) {
                     this.currentToken = this.lexer.dropToken();
                     this.body();
-                    this.currentToken = this.lexer.dropToken();
+                    // this.currentToken = this.lexer.dropToken();
                     if (
                         !this.currentToken ||
                         this.currentToken.type !== TokenType.EndBlock
                     ) {
                         throw this.error('Expected "}"');
                     }
+                    this.currentToken = this.lexer.dropToken();
+                    return true;
                 } else {
-                    this.expr();
+                    return this.expr();
                 }
             } else {
                 throw this.error('Expected "{" or expression');
             }
         }
-        return null;
+        return false;
     }
 
     public proc(): parserReturnType {
         if (!this.currentToken) {
-            return null;
+            return false;
         }
         return this.func();
     }
 
     public run(): void {
-        this.proc();
+        while (this.currentToken) {
+            this.proc();
+        }
     }
 
     public error(message: string): string {
