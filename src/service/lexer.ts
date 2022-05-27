@@ -66,7 +66,6 @@ export class Lexer {
     ];
 
     constructor(source: string) {
-        this._currentIndex = 0;
         this.column = 1;
         this.line = 1;
         this.readable = fs.createReadStream(source, {
@@ -82,7 +81,6 @@ export class Lexer {
         // don't care about white spaces
         if (this._currentToken === ' ') {
             this.column++;
-            this._currentIndex++;
             return null;
         }
         if (this._currentToken === '#') {
@@ -98,7 +96,6 @@ export class Lexer {
         ) {
             this.line++;
             this.column = 1;
-            this._currentIndex++;
             return null;
         }
         this.unread(this._currentToken);
@@ -107,8 +104,6 @@ export class Lexer {
             if (!this.lookaheadString(key)) {
                 continue;
             }
-
-            this._currentIndex += key.length;
             return value;
         }
         if (this._currentToken && this.literalRegex.test(this._currentToken)) {
