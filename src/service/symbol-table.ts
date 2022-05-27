@@ -2,7 +2,7 @@ import { TokenType } from '../types';
 
 export class SymbolTable {
     private _root: SymbolTableNode | null;
-    constructor(root: SymbolTableNode) {
+    constructor(root: SymbolTableNode | null) {
         this._root = root;
     }
 
@@ -10,13 +10,13 @@ export class SymbolTable {
         return this._root;
     }
 
-    public get(key: SymbolKey): SymbolTableNode | null {
+    public get(key: number): SymbolTableNode | null {
         let node = this._root;
         while (node) {
-            if (node.key.code === key.code) {
+            if (node.scope === key) {
                 return node;
             }
-            if (node.key.code > key.code) {
+            if (node.scope > key) {
                 node = node.left;
             } else {
                 node = node.right;
@@ -25,35 +25,63 @@ export class SymbolTable {
         return null;
     }
 
-    public put(key: SymbolKey, value: any): void {
+    private checkForDuplicateName(
+        node: SymbolTableNode,
+        newData: SymbolTableNode['table'],
+    ) {
+        let thisNode: SymbolTableNode | null = node;
+        while (thisNode && thisNode.scope <= node.scope) {
+            for (const [name] of newData) {
+                if (thisNode.table.has(name)) {
+                    throw new Error(`Duplicate symbol name: ${name}`);
+                }
+            }
+            thisNode = node.parent;
+        }
+    }
+
+    public put(key: number, data: Map<string, SymbolValue | null>): void {
         let node = this._root;
         while (node) {
-            if (node.key.code === key.code) {
-                node.value = value;
+            if (node.scope === key) {
+                this.checkForDuplicateName(node, data);
+                node.table = new Map([...node.table, ...data]);
                 return;
             }
-            if (node.key.code > key.code) {
+            if (node.scope > key) {
                 if (node.left) {
                     node = node.left;
                 } else {
-                    node.left = new SymbolTableNode(key, value, node);
+                    node.left = new SymbolTableNode(
+                        key,
+                        data,
+                        node,
+                        null,
+                        null,
+                    );
                     return;
                 }
             } else {
                 if (node.right) {
                     node = node.right;
                 } else {
-                    node.right = new SymbolTableNode(key, value, node);
+                    node.right = new SymbolTableNode(
+                        key,
+                        data,
+                        node,
+                        null,
+                        null,
+                    );
                     return;
                 }
             }
         }
     }
 
-    public remove(key: SymbolKey): void {
+    public remove(key: number): void {
         let node = this._root;
         while (node) {
-            if (node.key.code === key.code) {
+            if (node.scope === key) {
                 if (node.parent) {
                     if (node.parent.left === node) {
                         node.parent.left = null;
@@ -65,7 +93,7 @@ export class SymbolTable {
                 }
                 return;
             }
-            if (node.key.code > key.code) {
+            if (node.scope > key) {
                 node = node.left;
             } else {
                 node = node.right;
@@ -75,33 +103,24 @@ export class SymbolTable {
 }
 
 export class SymbolTableNode {
-    public key: SymbolKey;
-    public value: SymbolValue | null;
-    public parent: SymbolTableNode;
-    public left: SymbolTableNode | null;
-    public right: SymbolTableNode | null;
     constructor(
-        key: SymbolKey,
-        value: SymbolValue | null,
-        parent: SymbolTableNode,
+        public scope: number,
+        public table: Map<string, SymbolValue | null>,
+        public parent: SymbolTableNode | null,
+        public left: SymbolTableNode | null,
+        public right: SymbolTableNode | null,
     ) {
-        this.key = key;
-        this.value = value;
+        this.scope = scope;
+        this.table = table;
         this.parent = parent;
-        this.left = null;
-        this.right = null;
+        this.left = left;
+        this.right = right;
     }
 }
 
-export interface SymbolKey {
-    code: number;
-    name: string;
-    type: TokenType;
+export interface SymbolValue {
     isFunction: boolean;
     parametersCount: number;
-}
-
-export interface SymbolValue {
     returnType?: TokenType.ArrayType | TokenType.NumericType | TokenType.None;
     parameters?: Array<
         TokenType.ArrayType | TokenType.NumericType | TokenType.None

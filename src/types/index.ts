@@ -50,7 +50,6 @@ export enum TokenType {
     TernaryIfOperator = 'TernaryIfOperator',
     DefineVariableOperator = 'DefineVariableOperator',
 }
-
 export interface TokenNode<T extends TokenType> {
     type: T;
 }

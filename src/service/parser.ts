@@ -1,31 +1,34 @@
 import { Token, TokenType } from '../types';
 import { ParserError } from './error';
 import { Lexer } from './lexer';
-import { SymbolKey, SymbolValue } from './symbol-table';
+import { SymbolTable, SymbolValue } from './symbol-table';
 type parserReturnType = Token | boolean;
-// todo: remember to before call any function drop token (fix type function)
 export class Parser {
     private currentToken: Token | undefined;
+    private currentScope = 0;
     private lexer: Lexer;
     private parserError;
-    constructor(currentToken: Token | undefined, lexer: Lexer) {
+    constructor(
+        currentToken: Token | undefined,
+        lexer: Lexer,
+        private symbolTable: SymbolTable,
+    ) {
         this.currentToken = currentToken;
         this.lexer = lexer;
+        this.symbolTable = symbolTable;
         this.parserError = new ParserError(lexer);
     }
 
-    public type(): parserReturnType {
+    public type(): FunctionReturnType | boolean {
         if (!this.currentToken) {
             return false;
         }
         if (
-            [
-                TokenType.ArrayType,
-                TokenType.NumericType,
-                TokenType.None,
-            ].includes(this.currentToken.type)
+            this.currentToken.type === TokenType.ArrayType ||
+            this.currentToken.type === TokenType.NumericType ||
+            this.currentToken.type === TokenType.None
         ) {
-            return this.currentToken;
+            return this.currentToken.type;
         } else {
             throw this.error('Expected correct type');
         }
@@ -36,7 +39,7 @@ export class Parser {
             return false;
         }
         this.expr();
-        this.currentToken = this.lexer.dropToken();
+        // this.currentToken = this.lexer.dropToken();
         if (this.currentToken?.type === TokenType.Comma) {
             this.currentToken = this.lexer.dropToken();
             this.clist();
@@ -93,7 +96,7 @@ export class Parser {
         if (this.currentToken.type === TokenType.StartArray) {
             this.currentToken = this.lexer.dropToken();
             this.clist();
-            this.currentToken = this.lexer.dropToken();
+            // this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.EndArray
@@ -109,7 +112,7 @@ export class Parser {
             this.currentToken = this.lexer.dropToken();
             if (this.currentToken?.type === TokenType.AssignmentOperator) {
                 this.currentToken = this.lexer.dropToken();
-                this.expr();
+                return this.expr();
             }
             if (this.currentToken?.type === TokenType.OpenParen) {
                 this.currentToken = this.lexer.dropToken();
@@ -146,6 +149,8 @@ export class Parser {
                 TokenType.OrOperator,
             ].includes(this.currentToken.type)
         ) {
+            console.log(this.currentToken);
+
             this.currentToken = this.lexer.dropToken();
             this.expr();
             jobIsDone = true;
@@ -316,7 +321,6 @@ export class Parser {
                 throw this.error('Expected "}"');
             }
             this.currentToken = this.lexer.dropToken();
-            // todo: idk what should be returned here yet
             return true;
         }
         return this.func();
@@ -327,17 +331,17 @@ export class Parser {
             return false;
         }
         while (this.stmt()) {
-            console.log(this.currentToken);
             this.body();
         }
         return true;
     }
 
-    public flist(): parserReturnType {
+    public flist(): parserReturnType | Array<FunctionArg> {
         if (!this.currentToken) {
             return false;
         }
         let isCommaNext = false;
+        const args: Array<FunctionArg> = [];
         do {
             if (
                 !this.currentToken ||
@@ -354,7 +358,10 @@ export class Parser {
                 throw this.error('Expected ":"');
             }
             this.currentToken = this.lexer.dropToken();
-            console.log(identifier, this.type());
+            args.push({
+                identifier,
+                type: this.type() as FunctionReturnType,
+            });
             this.currentToken = this.lexer.dropToken();
             isCommaNext = this.currentToken?.type === TokenType.Comma;
             if (isCommaNext) {
@@ -364,7 +371,7 @@ export class Parser {
                 break;
             }
         } while (isCommaNext);
-        return true;
+        return args;
     }
 
     public func(): parserReturnType {
@@ -377,7 +384,6 @@ export class Parser {
                 throw this.error('Expected "identifier"');
             }
             const funcName = this.currentToken.value;
-            console.log(funcName);
             this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
@@ -386,7 +392,10 @@ export class Parser {
                 throw this.error('Expected "("');
             }
             this.currentToken = this.lexer.dropToken();
-            this.flist();
+            let args: FunctionArg[] = [];
+            if (this.currentToken?.type !== TokenType.CloseParen) {
+                args = this.flist() as FunctionArg[];
+            }
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.CloseParen
@@ -401,7 +410,7 @@ export class Parser {
                 throw this.error('Expected "->"');
             }
             this.currentToken = this.lexer.dropToken();
-            console.log(this.type());
+            const returnType = this.type();
             this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
@@ -409,10 +418,21 @@ export class Parser {
             ) {
                 throw this.error('Expected ":"');
             }
+            this.symbolTable.put(
+                this.currentScope,
+                new Map<string, SymbolValue>().set(funcName, {
+                    parametersCount: args.length,
+                    isFunction: true,
+                    parameters: args.map((arg) => arg.type),
+                    returnType: returnType as FunctionReturnType,
+                }),
+            );
+
             this.currentToken = this.lexer.dropToken();
             if (this.currentToken) {
                 if (this.currentToken.type === TokenType.StartBlock) {
                     this.currentToken = this.lexer.dropToken();
+                    this.currentScope++;
                     this.body();
                     // this.currentToken = this.lexer.dropToken();
                     if (
@@ -442,6 +462,7 @@ export class Parser {
 
     public run(): void {
         while (this.currentToken) {
+            this.currentScope = 0;
             this.proc();
         }
     }
@@ -452,3 +473,13 @@ export class Parser {
         } current token: ${this.currentToken?.type || 'undefined'}`;
     }
 }
+
+interface FunctionArg {
+    identifier: string;
+    type: FunctionReturnType;
+}
+
+type FunctionReturnType =
+    | TokenType.None
+    | TokenType.ArrayType
+    | TokenType.NumericType;
