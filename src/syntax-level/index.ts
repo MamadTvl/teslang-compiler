@@ -9,7 +9,7 @@ import { TokenType } from '../types';
 
 const main = async () => {
     const lexer = new Lexer('test/index.teslang');
-    const rootTable = new Map<string, SymbolValue | null>();
+    const rootTable = new Map<string, SymbolValue>();
     rootTable.set('print', {
         isFunction: true,
         parametersCount: 1,

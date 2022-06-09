@@ -25,26 +25,49 @@ export class SymbolTable {
         return null;
     }
 
-    private checkForDuplicateName(
+    private checkForDuplicateFunctionName(
         node: SymbolTableNode,
         newData: SymbolTableNode['table'],
     ) {
         let thisNode: SymbolTableNode | null = node;
         while (thisNode && thisNode.scope <= node.scope) {
             for (const [name] of newData) {
-                if (thisNode.table.has(name)) {
-                    throw new Error(`Duplicate symbol name: ${name}`);
+                if (
+                    thisNode.table.has(name) &&
+                    thisNode.table.get(name)?.isFunction
+                ) {
+                    console.log(`Duplicate symbol name: ${name}`);
                 }
             }
             thisNode = node.parent;
         }
     }
 
-    public put(key: number, data: Map<string, SymbolValue | null>): void {
+    private checkForDuplicateVariableName(
+        node: SymbolTableNode,
+        newData: SymbolTableNode['table'],
+    ) {
+        let thisNode: SymbolTableNode | null = node;
+        while (thisNode && thisNode.scope <= node.scope) {
+            for (const [name, value] of newData) {
+                if (
+                    thisNode.table.has(name) &&
+                    !thisNode.table.get(name)?.isFunction
+                ) {
+                    console.log(`Duplicate symbol name: ${name}`);
+                }
+                // if (value.isFunction) {
+                //     if (value.parameters)
+                // }
+            }
+            thisNode = node.parent;
+        }
+    }
+
+    public put(key: number, data: Map<string, SymbolValue>): void {
         let node = this._root;
         while (node) {
             if (node.scope === key) {
-                this.checkForDuplicateName(node, data);
                 node.table = new Map([...node.table, ...data]);
                 return;
             }
@@ -105,7 +128,7 @@ export class SymbolTable {
 export class SymbolTableNode {
     constructor(
         public scope: number,
-        public table: Map<string, SymbolValue | null>,
+        public table: Map<string, SymbolValue>,
         public parent: SymbolTableNode | null,
         public left: SymbolTableNode | null,
         public right: SymbolTableNode | null,

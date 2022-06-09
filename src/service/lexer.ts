@@ -8,6 +8,7 @@ export class Lexer {
     public column: number;
     public line: number;
     private prvChars: string[] = [];
+    private tokenStack: Token[] = [];
     literalRegex = /[a-zA-Z]/;
     literalRegexNext = /[a-zA-Z0-9]/;
     numberRegex = /[0-9]+/;
@@ -144,6 +145,17 @@ export class Lexer {
         } else {
             return false;
         }
+        // todo: test nextChar with literalRegexNext !
+        const nextChar = this.read();
+        if (
+            nextChar &&
+            this.tokenStringMap.findIndex((key) => key.key === token) < 22 &&
+            this.literalRegexNext.test(nextChar)
+        ) {
+            this.unread(token + nextChar);
+            return false;
+        }
+        nextChar && this.unread(nextChar);
         return true;
     }
 
@@ -206,14 +218,26 @@ export class Lexer {
 
     public dropToken(): Token | undefined {
         while (true) {
-            const token = this.tokenize();
-            if (token) {
-                this.calculateColumn(token);
-                return token;
-            } else if (token === undefined) {
-                break;
+            if (this.tokenStack.length > 0) {
+                return this.tokenStack.shift();
+            } else {
+                const token = this.tokenize();
+                if (token) {
+                    this.calculateColumn(token);
+                    return token;
+                } else if (token === undefined) {
+                    break;
+                }
             }
         }
         return undefined;
+    }
+
+    public getBackToken(token: Token | Token[]): void {
+        this.tokenStack.unshift(...(Array.isArray(token) ? token : [token]));
+    }
+
+    public debug(...args: any) {
+        console.log(`${this.line}:${this.column}`, ...args);
     }
 }
