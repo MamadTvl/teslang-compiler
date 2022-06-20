@@ -50,6 +50,7 @@ export enum TokenType {
     TernaryIfOperator = 'TernaryIfOperator',
     DefineVariableOperator = 'DefineVariableOperator',
 }
+
 export interface TokenNode<T extends TokenType> {
     type: T;
 }
@@ -110,3 +111,17 @@ export type Token =
     | TokenNode<TokenType.LengthFunction>
     | TokenNode<TokenType.TernaryIfOperator>
     | TokenNode<TokenType.DefineVariableOperator>;
+
+export type TypeResult =
+    | TokenNode<TokenType.NumericType>
+    | TokenNode<TokenType.ArrayType>
+    | TokenNode<TokenType.None>
+    | undefined;
+
+export type clistResult = Token[] | void;
+export type defvarResult = boolean;
+export type exprResult = boolean;
+export type stmtResult = boolean;
+export type bodyResult = boolean;
+export type flistResult = { identifier: string; type: TypeResult }[];
+export type funcResult = boolean;
