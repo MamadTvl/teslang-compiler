@@ -2,12 +2,15 @@ import { Token, TokenType } from '../types';
 import { ParserError } from './error';
 import { Lexer } from './lexer';
 import { SymbolTable, SymbolValue } from './symbol-table';
+
 type parserReturnType = Token | boolean;
+
 export class Parser {
     private currentToken: Token | undefined;
     private currentScope = 0;
     private lexer: Lexer;
     private parserError;
+
     constructor(
         currentToken: Token | undefined,
         lexer: Lexer,
@@ -84,6 +87,40 @@ export class Parser {
         if (!this.currentToken) {
             return false;
         }
+        const nextToken = this.lexer.dropToken();
+        if (nextToken) {
+            if (
+                nextToken.type === TokenType.StartArray &&
+                this.currentToken?.type === TokenType.Literal
+            ) {
+                const arrayName = this.currentToken.value;
+                this.currentToken = this.lexer.dropToken();
+                this.expr();
+                if (
+                    !this.currentToken ||
+                    this.currentToken.type !== TokenType.EndArray
+                ) {
+                    throw this.error('Expected "]"');
+                }
+                this.currentToken = this.lexer.dropToken();
+                if (
+                    !this.currentToken ||
+                    this.currentToken.type !== TokenType.AssignmentOperator
+                ) {
+                    throw this.error('Expected "="');
+                }
+                this.currentToken = this.lexer.dropToken();
+                this.expr();
+                if (
+                    !this.currentToken ||
+                    this.currentToken.type !== TokenType.SemiColon
+                ) {
+                    throw this.error('Expected ";"');
+                }
+                return true;
+            }
+            this.lexer.getBackToken(nextToken);
+        }
         if (this.currentToken.type === TokenType.NotOperator) {
             this.currentToken = this.lexer.dropToken();
             this.expr();
@@ -143,9 +180,6 @@ export class Parser {
             return true;
         }
         let jobIsDone = false;
-        this.lexer.debug(
-            this.currentToken.type === TokenType.AssignmentOperator,
-        );
         while (
             [
                 TokenType.MinusOperator,
