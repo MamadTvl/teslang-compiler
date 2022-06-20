@@ -37,17 +37,23 @@ export class Parser {
         }
     }
 
-    public clist(): parserReturnType {
+    public clist(): parserReturnType[] | void {
         if (!this.currentToken) {
-            return false;
+            return;
+        }
+        const args: Token[] = [];
+        if (this.currentToken.type === TokenType.Literal) {
+            args.push(this.currentToken);
         }
         this.expr();
+
         // this.currentToken = this.lexer.dropToken();
         if (this.currentToken?.type === TokenType.Comma) {
             this.currentToken = this.lexer.dropToken();
-            this.clist();
+            const args = this.clist();
+            args?.push(...(Array.isArray(args) ? args : []));
         }
-        return true;
+        return args;
     }
 
     public defvar(): parserReturnType {
@@ -161,14 +167,18 @@ export class Parser {
             }
             if (this.currentToken?.type === TokenType.OpenParen) {
                 this.currentToken = this.lexer.dropToken();
-                this.clist();
-                this.currentToken = this.lexer.dropToken();
+                console.log(this.clist());
+                if (this.currentToken?.type !== TokenType.CloseParen) {
+                    this.currentToken = this.lexer.dropToken();
+                }
                 if (
                     !this.currentToken ||
                     this.currentToken?.type !== TokenType.CloseParen
                 ) {
                     throw this.error('Expected ")"');
                 }
+                this.currentToken = this.lexer.dropToken();
+                return true;
             }
             return this.expr();
         }
@@ -197,7 +207,6 @@ export class Parser {
                 TokenType.OrOperator,
             ].includes(this.currentToken.type)
         ) {
-            this.lexer.debug(this.currentToken.type);
             this.currentToken = this.lexer.dropToken();
             this.expr();
             jobIsDone = true;
@@ -244,6 +253,7 @@ export class Parser {
             if (this.currentToken.type !== TokenType.SemiColon) {
                 throw this.error('Expected ";"');
             }
+
             this.currentToken = this.lexer.dropToken();
             return true;
         }
