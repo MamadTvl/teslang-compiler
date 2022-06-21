@@ -125,3 +125,25 @@ export type stmtResult = boolean;
 export type bodyResult = boolean;
 export type flistResult = { identifier: string; type: TypeResult }[];
 export type funcResult = boolean;
+
+export interface SymbolNode {
+    scope: number;
+    isFunction: boolean;
+    returnType?: TokenType.ArrayType | TokenType.NumericType | TokenType.None;
+    parameters?: Array<FunctionParameter>;
+}
+
+export interface SymbolTableInterface {
+    symbols: Map<string, SymbolNode[]>;
+
+    insert(key: string, SymbolNode: SymbolNode): boolean;
+
+    lookup(key: string, scope: number): SymbolNode | null;
+
+    remove(key: string, scope: number): boolean;
+}
+
+export interface FunctionParameter {
+    type: TokenType.ArrayType | TokenType.NumericType | TokenType.None;
+    name: string;
+}

@@ -1,151 +1,47 @@
-import { TokenType } from '../types';
+import { SymbolNode, SymbolTableInterface } from '../types';
 
-export class SymbolTable {
-    private _root: SymbolTableNode | null;
-    constructor(root: SymbolTableNode | null) {
-        this._root = root;
-    }
+export class SymbolTable implements SymbolTableInterface {
+    symbols: Map<string, SymbolNode[]> = new Map();
 
-    public get root(): SymbolTableNode | null {
-        return this._root;
-    }
-
-    public get(key: number): SymbolTableNode | null {
-        let node = this._root;
-        while (node) {
-            if (node.scope === key) {
-                return node;
+    insert(key: string, SymbolNode: SymbolNode): boolean {
+        if (this.symbols.has(key)) {
+            const nodes = this.symbols.get(key) as SymbolNode[];
+            if (nodes.find((node) => node.scope === SymbolNode.scope)) {
+                console.log(
+                    `Error: Symbol ${key} already exists at scope ${SymbolNode.scope}`,
+                );
+                return false;
             }
-            if (node.scope > key) {
-                node = node.left;
-            } else {
-                node = node.right;
+            nodes.push(SymbolNode);
+            return true;
+        }
+        this.symbols.set(key, [SymbolNode]);
+        return true;
+    }
+
+    lookup(key: string, scope: number): SymbolNode | null {
+        if (this.symbols.has(key)) {
+            const nodes = this.symbols.get(key) as SymbolNode[];
+            const node = nodes.find((node) => node.scope === scope);
+            if (node) {
+                return node;
             }
         }
         return null;
     }
 
-    private checkForDuplicateFunctionName(
-        node: SymbolTableNode,
-        newData: SymbolTableNode['table'],
-    ) {
-        let thisNode: SymbolTableNode | null = node;
-        while (thisNode && thisNode.scope <= node.scope) {
-            for (const [name] of newData) {
-                if (
-                    thisNode.table.has(name) &&
-                    thisNode.table.get(name)?.isFunction
-                ) {
-                    console.log(`Duplicate symbol name: ${name}`);
+    remove(key: string, scope: number): boolean {
+        if (this.symbols.has(key)) {
+            const nodes = this.symbols.get(key) as SymbolNode[];
+            const node = nodes.find((node) => node.scope === scope);
+            if (node) {
+                nodes.splice(nodes.indexOf(node), 1);
+                if (nodes.length === 0) {
+                    this.symbols.delete(key);
                 }
-            }
-            thisNode = node.parent;
-        }
-    }
-
-    private checkForDuplicateVariableName(
-        node: SymbolTableNode,
-        newData: SymbolTableNode['table'],
-    ) {
-        let thisNode: SymbolTableNode | null = node;
-        while (thisNode && thisNode.scope <= node.scope) {
-            for (const [name, value] of newData) {
-                if (
-                    thisNode.table.has(name) &&
-                    !thisNode.table.get(name)?.isFunction
-                ) {
-                    console.log(`Duplicate symbol name: ${name}`);
-                }
-                // if (value.isFunction) {
-                //     if (value.parameters)
-                // }
-            }
-            thisNode = node.parent;
-        }
-    }
-
-    public put(key: number, data: Map<string, SymbolValue>): void {
-        let node = this._root;
-        while (node) {
-            if (node.scope === key) {
-                node.table = new Map([...node.table, ...data]);
-                return;
-            }
-            if (node.scope > key) {
-                if (node.left) {
-                    node = node.left;
-                } else {
-                    node.left = new SymbolTableNode(
-                        key,
-                        data,
-                        node,
-                        null,
-                        null,
-                    );
-                    return;
-                }
-            } else {
-                if (node.right) {
-                    node = node.right;
-                } else {
-                    node.right = new SymbolTableNode(
-                        key,
-                        data,
-                        node,
-                        null,
-                        null,
-                    );
-                    return;
-                }
+                return true;
             }
         }
+        return false;
     }
-
-    public remove(key: number): void {
-        let node = this._root;
-        while (node) {
-            if (node.scope === key) {
-                if (node.parent) {
-                    if (node.parent.left === node) {
-                        node.parent.left = null;
-                    } else {
-                        node.parent.right = null;
-                    }
-                } else {
-                    this._root = null;
-                }
-                return;
-            }
-            if (node.scope > key) {
-                node = node.left;
-            } else {
-                node = node.right;
-            }
-        }
-    }
-}
-
-export class SymbolTableNode {
-    constructor(
-        public scope: number,
-        public table: Map<string, SymbolValue>,
-        public parent: SymbolTableNode | null,
-        public left: SymbolTableNode | null,
-        public right: SymbolTableNode | null,
-    ) {
-        this.scope = scope;
-        this.table = table;
-        this.parent = parent;
-        this.left = left;
-        this.right = right;
-    }
-}
-
-export interface SymbolValue {
-    isFunction: boolean;
-    parametersCount: number;
-    returnType?: TokenType.ArrayType | TokenType.NumericType | TokenType.None;
-    parameters?: Array<
-        TokenType.ArrayType | TokenType.NumericType | TokenType.None
-    >;
 }
