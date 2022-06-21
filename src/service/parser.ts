@@ -1,13 +1,26 @@
-import { Token, TokenType } from '../types';
+import {
+    bodyResult,
+    clistResult,
+    defvarResult,
+    exprResult,
+    flistResult,
+    funcResult,
+    FunctionParameter,
+    stmtResult,
+    Token,
+    TokenType,
+    TypeResult,
+} from '../types';
 import { ParserError } from './error';
 import { Lexer } from './lexer';
-import { SymbolTable, SymbolValue } from './symbol-table';
+import { SymbolTable } from './symbol-table';
 
 type parserReturnType = Token | boolean;
 
 export class Parser {
     private currentToken: Token | undefined;
     private currentScope = 0;
+    private currentFunction = '';
     private lexer: Lexer;
     private parserError;
     private panicing = false;
@@ -23,9 +36,15 @@ export class Parser {
         this.parserError = new ParserError(lexer);
     }
 
-    public type(): Type | boolean {
+    private getScope(functionName?: string, scope?: number): string {
+        return `${functionName || this.currentFunction}-${
+            scope || this.currentScope
+        }`;
+    }
+
+    public type(): TypeResult {
         if (!this.currentToken) {
-            return false;
+            return undefined;
         }
         if (
             this.currentToken.type === TokenType.ArrayType ||
@@ -35,11 +54,11 @@ export class Parser {
             return this.currentToken.type;
         } else {
             this.error('Expected correct type');
-            return false;
+            return undefined;
         }
     }
 
-    public clist(): parserReturnType[] | void {
+    public clist(): clistResult {
         if (!this.currentToken) {
             return;
         }
@@ -58,7 +77,7 @@ export class Parser {
         return args;
     }
 
-    public defvar(): parserReturnType {
+    public defvar(): defvarResult {
         if (!this.currentToken) {
             return false;
         }
@@ -72,26 +91,33 @@ export class Parser {
                 this.error('Expected ":"');
             }
             this.currentToken = this.lexer.dropToken();
-            const type = this.type() as Type;
+            const type = this.type();
             this.currentToken = this.lexer.dropToken();
             if (this.currentToken?.type === TokenType.AssignmentOperator) {
                 this.currentToken = this.lexer.dropToken();
                 this.expr();
             }
-            this.symbolTable.put(
-                this.currentScope,
-                new Map<string, SymbolValue>().set(identifier, {
+            if (type) {
+                this.symbolTable.insert(identifier, {
                     isFunction: false,
-                    parametersCount: -1,
-                    returnType: type,
-                }),
-            );
+                    scope: this.getScope(),
+                    type: type,
+                });
+            }
+            // this.symbolTable.put(
+            //     this.currentScope,
+            //     new Map<string, SymbolValue>().set(identifier, {
+            //         isFunction: false,
+            //         parametersCount: -1,
+            //         returnType: type,
+            //     }),
+            // );
             return true;
         }
         return false;
     }
 
-    public expr(): parserReturnType {
+    public expr(): exprResult {
         if (!this.currentToken) {
             return false;
         }
@@ -164,12 +190,12 @@ export class Parser {
             this.currentToken = this.lexer.dropToken();
             if (this.currentToken?.type === TokenType.AssignmentOperator) {
                 this.currentToken = this.lexer.dropToken();
-                const symbol = this.symbolTable.get(this.currentScope);
+                // const symbol = this.symbolTable.get(this.currentScope);
                 return this.expr();
             }
             if (this.currentToken?.type === TokenType.OpenParen) {
                 this.currentToken = this.lexer.dropToken();
-
+                this.clist();
                 if (this.currentToken?.type !== TokenType.CloseParen) {
                     this.currentToken = this.lexer.dropToken();
                 }
@@ -245,7 +271,7 @@ export class Parser {
         return jobIsDone || false;
     }
 
-    public stmt(): parserReturnType {
+    public stmt(): stmtResult {
         if (!this.currentToken) {
             return false;
         }
@@ -314,14 +340,19 @@ export class Parser {
             return this.stmt();
         }
         if (this.currentToken?.type === TokenType.For) {
+            let arrayItemIdentifier: string | undefined;
+            let arrayIndexIdentifier: string | undefined;
+            let arrayIdentifier: string | undefined;
             this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
                 this.currentToken?.type !== TokenType.Literal
             ) {
                 this.error('Expected "identifier"');
+            } else {
+                arrayItemIdentifier = this.currentToken.value;
             }
-            // const arrayValueIdentifier = this.currentToken.value;
+
             this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
@@ -335,8 +366,9 @@ export class Parser {
                 this.currentToken?.type !== TokenType.Literal
             ) {
                 this.error('Expected "identifier"');
+            } else {
+                arrayIndexIdentifier = this.currentToken.value;
             }
-            // const arrayIndexIdentifier = this.currentToken.value;
             this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
@@ -345,6 +377,32 @@ export class Parser {
                 this.error('Expected "<-"');
             }
             this.currentToken = this.lexer.dropToken();
+            if (
+                this.currentToken &&
+                this.currentToken.type === TokenType.Literal
+            ) {
+                arrayIdentifier = this.currentToken.value;
+            }
+            arrayItemIdentifier &&
+                this.symbolTable.insert(arrayItemIdentifier, {
+                    isFunction: false,
+                    type: TokenType.NumericType,
+                    scope: this.getScope(undefined, this.currentScope + 1),
+                });
+            arrayIndexIdentifier &&
+                this.symbolTable.insert(arrayIndexIdentifier, {
+                    isFunction: false,
+                    type: TokenType.NumericType,
+                    scope: this.getScope(undefined, this.currentScope + 1),
+                });
+            if (arrayIdentifier) {
+                // check if the array is defined
+                this.symbolTable.lookup(
+                    arrayIdentifier,
+                    this.getScope(undefined, this.currentScope + 1),
+                    true,
+                );
+            }
             this.expr();
             // this.currentToken = this.lexer.dropToken();
             if (
@@ -384,7 +442,7 @@ export class Parser {
         return this.func();
     }
 
-    public body(): parserReturnType {
+    public body(): bodyResult {
         if (!this.currentToken) {
             return false;
         }
@@ -394,12 +452,12 @@ export class Parser {
         return true;
     }
 
-    public flist(): parserReturnType | Array<FunctionArg> {
+    public flist(): flistResult {
         if (!this.currentToken) {
-            return false;
+            return [];
         }
         let isCommaNext = false;
-        const args: Array<FunctionArg> = [];
+        const args: Array<FunctionParameter> = [];
         do {
             let identifier = '';
             if (
@@ -419,7 +477,7 @@ export class Parser {
             }
             this.currentToken = this.lexer.dropToken();
             args.push({
-                identifier,
+                name: identifier,
                 type: this.type() as Type,
             });
             this.currentToken = this.lexer.dropToken();
@@ -434,7 +492,7 @@ export class Parser {
         return args;
     }
 
-    public func(): parserReturnType {
+    public func(): funcResult {
         if (this.currentToken?.type === TokenType.Function) {
             let funcName = '';
             this.currentToken = this.lexer.dropToken();
@@ -446,6 +504,7 @@ export class Parser {
             } else {
                 funcName = this.currentToken.value;
             }
+            this.currentFunction = funcName;
             this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
@@ -454,9 +513,9 @@ export class Parser {
                 this.error('Expected "("');
             }
             this.currentToken = this.lexer.dropToken();
-            let args: FunctionArg[] = [];
+            let args: flistResult = [];
             if (this.currentToken?.type !== TokenType.CloseParen) {
-                args = this.flist() as FunctionArg[];
+                args = this.flist();
             }
             if (
                 !this.currentToken ||
@@ -480,16 +539,19 @@ export class Parser {
             ) {
                 this.error('Expected ":"');
             }
-            this.symbolTable.put(
-                this.currentScope,
-                new Map<string, SymbolValue>().set(funcName, {
-                    parametersCount: args.length,
-                    isFunction: true,
-                    parameters: args.map((arg) => arg.type),
-                    returnType: returnType as Type,
-                }),
-            );
-
+            this.symbolTable.insert(funcName, {
+                isFunction: true,
+                scope: this.getScope(),
+                returnType: returnType,
+                parameters: args,
+            });
+            for (const arg of args) {
+                this.symbolTable.insert(arg.name, {
+                    isFunction: false,
+                    scope: this.getScope(undefined, this.currentScope + 1),
+                    type: arg.type,
+                });
+            }
             this.currentToken = this.lexer.dropToken();
             if (this.currentToken) {
                 if (this.currentToken.type === TokenType.StartBlock) {
@@ -530,21 +592,21 @@ export class Parser {
     }
 
     public error(message: string): void {
+        let currentToken: TokenType | string | undefined =
+            this.currentToken?.type;
+        if (currentToken && this.currentToken?.type === TokenType.Literal) {
+            currentToken = '"' + this.currentToken.value + '"';
+        }
         console.log(
-            `${message} on ${this.lexer.line}:${
+            `Syntax Error: ${message} on ${this.lexer.line}:${
                 this.lexer.column
-            } current token: ${this.currentToken?.type || 'undefined'}`,
+            } current token: ${currentToken || 'undefined'}`,
         );
         this.panicing = true;
         while (this.currentToken?.type !== TokenType.SemiColon) {
             this.currentToken = this.lexer.dropToken();
         }
     }
-}
-
-interface FunctionArg {
-    identifier: string;
-    type: Type;
 }
 
 type Type = TokenType.None | TokenType.ArrayType | TokenType.NumericType;

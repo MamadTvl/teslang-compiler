@@ -1,3 +1,5 @@
+import { Lexer } from '../service/lexer';
+
 export enum TokenType {
     VariableTypeDeclaration = 'VariableTypeDeclaration',
     AssignmentOperator = 'AssignmentOperator',
@@ -113,9 +115,9 @@ export type Token =
     | TokenNode<TokenType.DefineVariableOperator>;
 
 export type TypeResult =
-    | TokenNode<TokenType.NumericType>
-    | TokenNode<TokenType.ArrayType>
-    | TokenNode<TokenType.None>
+    | TokenType.NumericType
+    | TokenType.ArrayType
+    | TokenType.None
     | undefined;
 
 export type clistResult = Token[] | void;
@@ -123,24 +125,27 @@ export type defvarResult = boolean;
 export type exprResult = boolean;
 export type stmtResult = boolean;
 export type bodyResult = boolean;
-export type flistResult = { identifier: string; type: TypeResult }[];
+export type flistResult = FunctionParameter[];
 export type funcResult = boolean;
 
 export interface SymbolNode {
-    scope: number;
+    scope: string;
     isFunction: boolean;
     returnType?: TokenType.ArrayType | TokenType.NumericType | TokenType.None;
+    type?: TokenType.ArrayType | TokenType.NumericType | TokenType.None;
     parameters?: Array<FunctionParameter>;
 }
 
 export interface SymbolTableInterface {
     symbols: Map<string, SymbolNode[]>;
+    tables: Map<string, Map<string, SymbolNode[]>>;
+    lexer: Lexer;
 
-    insert(key: string, SymbolNode: SymbolNode): boolean;
+    insert(key: string, SymbolNode: SymbolNode, withError: boolean): boolean;
 
-    lookup(key: string, scope: number): SymbolNode | null;
+    lookup(key: string, scope: string): SymbolNode | null;
 
-    remove(key: string, scope: number): boolean;
+    remove(key: string, scope: string): boolean;
 }
 
 export interface FunctionParameter {
