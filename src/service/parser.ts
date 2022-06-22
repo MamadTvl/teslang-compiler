@@ -118,17 +118,22 @@ export class Parser {
                 this.error('Expected ":"');
             }
             this.currentToken = this.lexer.dropToken();
-            const type = this.type();
+            const identifierType = this.type();
             this.currentToken = this.lexer.dropToken();
             if (this.currentToken?.type === TokenType.AssignmentOperator) {
                 this.currentToken = this.lexer.dropToken();
-                this.expr();
+                const assignmentType = this.expr();
+                if (identifierType !== assignmentType) {
+                    this.symbolTable.error(
+                        `cannot assign ${assignmentType} to ${identifierType}`,
+                    );
+                }
             }
-            if (type) {
+            if (identifierType) {
                 this.symbolTable.insert(identifier, {
                     isFunction: false,
                     scope: this.getScope(),
-                    type: type,
+                    type: identifierType,
                 });
             }
             return true;
@@ -238,6 +243,16 @@ export class Parser {
                     this.error('Expected "]"');
                 }
                 this.currentToken = this.lexer.dropToken();
+                if (this.currentToken?.type === TokenType.AssignmentOperator) {
+                    this.currentToken = this.lexer.dropToken();
+                    const assignmentType = this.expr();
+                    if (assignmentType !== TokenType.NumericType) {
+                        this.symbolTable.error(
+                            `cannot assign ${assignmentType} to ${TokenType.NumericType}`,
+                        );
+                    }
+                    return TokenType.NumericType;
+                }
                 return this.expr() || TokenType.NumericType;
             }
 
@@ -249,6 +264,7 @@ export class Parser {
             this.currentToken = this.lexer.dropToken();
             return TokenType.NumericType;
         }
+
         let jobIsDone = false;
         while (
             [
@@ -262,7 +278,6 @@ export class Parser {
                 TokenType.GreaterThanOrEqualOperator,
                 TokenType.LessThanOrEqualOperator,
                 TokenType.EqualOperator,
-                TokenType.AssignmentOperator,
                 TokenType.AndOperator,
                 TokenType.OrOperator,
             ].includes(this.currentToken.type)
@@ -288,6 +303,7 @@ export class Parser {
         //     this.currentToken = this.lexer.dropToken();
         //     return true;
         // }
+
         if (this.currentToken?.type === TokenType.TernaryIfOperator) {
             this.currentToken = this.lexer.dropToken();
             const firstType = this.expr();
@@ -649,9 +665,9 @@ export class Parser {
             currentToken = '"' + this.currentToken.value + '"';
         }
         console.log(
-            `Syntax Error: ${message} on ${this.lexer.line}:${
-                this.lexer.column
-            } current token: ${currentToken || 'undefined'}`,
+            `Syntax Error: ${message} but got ${
+                currentToken || 'undefined'
+            } on ${this.lexer.line}:${this.lexer.column} `,
         );
         this.panicing = true;
         while (this.currentToken?.type !== TokenType.SemiColon) {
