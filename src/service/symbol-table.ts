@@ -33,10 +33,11 @@ export class SymbolTable implements SymbolTableInterface {
         scope: string,
         withError = false,
         isFunction = false,
+        findNearestFunction = false,
     ): SymbolNode | null {
         const [functionName, scopeNumber] = scope.split('-');
         const findCallback = (node: SymbolNode) => {
-            if (isFunction) {
+            if (isFunction && !findNearestFunction) {
                 return node.scope === `${key}-0`;
             } else {
                 if (node.scope.split('-')[0] === functionName) {
@@ -50,6 +51,11 @@ export class SymbolTable implements SymbolTableInterface {
 
         if (this.symbols.has(key)) {
             const nodes = this.symbols.get(key) as SymbolNode[];
+            if (findNearestFunction) {
+                nodes.sort(
+                    (a, b) => +b.scope.split('-')[1] - +a.scope.split('-')[1],
+                );
+            }
             const node = nodes.find(findCallback);
             if (node) {
                 return node;

@@ -153,6 +153,7 @@ export interface SymbolTableInterface {
         scope: string,
         withError: boolean,
         isFunction: boolean,
+        findNearestFunction: boolean,
     ): SymbolNode | null;
 
     remove(key: string, scope: string): boolean;

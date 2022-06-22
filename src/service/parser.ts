@@ -87,20 +87,19 @@ export class Parser {
             return [];
         }
         const args: Type[] = [];
-        // if (this.currentToken.type === TokenType.Literal) {
-        //     args.push(this.currentToken);
-        // }
         const result = this.expr();
-        if (!result) {
-            this.symbolTable.error('expected numeric or array type here');
-        }
-        result && args.push(result as Type);
 
-        // this.currentToken = this.lexer.dropToken();
+        if (!result) {
+            this.symbolTable.error(
+                'expected numeric or array or none type here',
+            );
+        }
+        result && args.push(result);
+
         if (this.currentToken?.type === TokenType.Comma) {
             this.currentToken = this.lexer.dropToken();
-            const args = this.clist();
-            args?.push(...(Array.isArray(args) ? args : []));
+            const thisArgs = this.clist();
+            args.push(...thisArgs);
         }
         return args;
     }
@@ -451,14 +450,28 @@ export class Parser {
         }
         if (this.currentToken?.type === TokenType.Return) {
             this.currentToken = this.lexer.dropToken();
-            this.expr();
+            const returnType = this.expr();
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.SemiColon
             ) {
                 this.error('Expected ";"');
             }
+            const currentFunctionSymbol = this.symbolTable.lookup(
+                this.currentFunction,
+                this.getScope(),
+                false,
+                true,
+                true,
+            );
+            // this.lexer.debug(currentFunctionSymbol, this.getScope());
+            if (currentFunctionSymbol?.returnType !== returnType) {
+                this.symbolTable.error(
+                    `returning value from wrong type (${returnType}) from function ${this.currentFunction} [excepted ${currentFunctionSymbol?.returnType}]`,
+                );
+            }
             this.currentToken = this.lexer.dropToken();
+
             return true;
         }
         if (this.currentToken?.type === TokenType.StartBlock) {
