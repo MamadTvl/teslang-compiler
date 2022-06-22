@@ -1,8 +1,10 @@
 # TesLang  Compiler
 
 ## Installation
-first install nodejs 
+after installing node.js 
 
+
+run
 ```
 npm install or yarn
 ```
@@ -18,4 +20,9 @@ npm run compile or yarn compile
 ### lexical level
 ```
 npm run start:lexical or yarn start:lexical 
+```
+
+### analysis level
+```
+npm run start:analysis or yarn start:analysis 
 ```
