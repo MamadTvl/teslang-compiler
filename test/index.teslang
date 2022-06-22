@@ -7,29 +7,39 @@ fc find(A : array, n : numeric) -> numeric : {
         }
         i = i + 1;
     }
-    fc find(A : array, n : numeric) -> numeric : {
+    fc find(A : array, n : numeric) -> array : {
     let n : numeric;
     let i : numeric;
     for a, i <- A : {
         if n == k : {
-            return i;
+            return A;
         }
         i = i + 1;
     }
-    return -1;
+    return A;
 }
     return -1;
 }
 
 fc main() -> array : {
-    let A : numeric;
+    #let A : numeric;
     let a : numeric;
     let A : array = [1,2,3];
-    A[0] = 313;
+    A[a] = 313;
     A[1] = 5;
     A[2] = 5;
+    print(a);
+    print(A[0]);
+    find([1,2,3], 2);
     print(find(A, a));
     print(find(A));
     print(find(a, A));
     return A;
+}
+fc GG(A : array) -> none : {
+    let A : array;
+    let i : numeric;
+    for a, i <- A : {
+        print(a);
+    }
 }
