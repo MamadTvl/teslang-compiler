@@ -91,6 +91,9 @@ export class Parser {
         //     args.push(this.currentToken);
         // }
         const result = this.expr();
+        if (!result) {
+            this.symbolTable.error('expected numeric or array type here');
+        }
         result && args.push(result as Type);
 
         // this.currentToken = this.lexer.dropToken();
@@ -136,53 +139,11 @@ export class Parser {
 
     public expr(): exprResult {
         if (!this.currentToken) {
-            return false;
-        }
-        const nextToken = this.lexer.dropToken();
-        if (nextToken) {
-            if (
-                nextToken.type === TokenType.StartArray &&
-                this.currentToken?.type === TokenType.Literal
-            ) {
-                const arrayName = this.currentToken.value;
-                this.symbolTable.lookup(arrayName, this.getScope(), true);
-                this.currentToken = this.lexer.dropToken();
-                const arrayIndexToken = this.expr();
-                if (arrayIndexToken !== TokenType.NumericType) {
-                    console.error('Expected number');
-                }
-                if (
-                    !this.currentToken ||
-                    this.currentToken.type !== TokenType.EndArray
-                ) {
-                    this.error('Expected "]"');
-                }
-                this.currentToken = this.lexer.dropToken();
-                if (
-                    !this.currentToken ||
-                    this.currentToken.type !== TokenType.AssignmentOperator
-                ) {
-                    this.error('Expected "="');
-                }
-                this.currentToken = this.lexer.dropToken();
-                const value = this.expr();
-                if (value !== TokenType.NumericType) {
-                    this.error('Expected number');
-                }
-                if (
-                    !this.currentToken ||
-                    this.currentToken.type !== TokenType.SemiColon
-                ) {
-                    this.error('Expected ";"');
-                }
-                return true;
-            }
-            this.lexer.getBackToken(nextToken);
+            return undefined;
         }
         if (this.currentToken.type === TokenType.NotOperator) {
             this.currentToken = this.lexer.dropToken();
-            this.expr();
-            return true;
+            return this.expr();
         }
         if (this.currentToken.type === TokenType.PlusOperator) {
             this.currentToken = this.lexer.dropToken();
@@ -195,9 +156,7 @@ export class Parser {
 
         if (this.currentToken.type === TokenType.StartArray) {
             this.currentToken = this.lexer.dropToken();
-            //todo:
             this.clist();
-            // this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.EndArray
@@ -253,16 +212,37 @@ export class Parser {
                         inputParams,
                     );
                 this.currentToken = this.lexer.dropToken();
-                return func?.returnType || true;
+                return func?.returnType || undefined;
             }
-            // todo: add if for iden[expr]
             const identifier = this.symbolTable.lookup(
                 literalValue,
                 this.getScope(),
                 true,
             );
-            this.expr();
-            return identifier?.type || true;
+            if (this.currentToken?.type === TokenType.StartArray) {
+                this.currentToken = this.lexer.dropToken();
+                if (identifier?.type !== TokenType.ArrayType) {
+                    this.symbolTable.error(
+                        `${identifier} must be typeof Array`,
+                    );
+                }
+                const type = this.expr();
+                if (type !== TokenType.NumericType) {
+                    this.symbolTable.error(
+                        'index of array must be typeof numeric',
+                    );
+                }
+                if (
+                    !this.currentToken ||
+                    this.currentToken?.type !== TokenType.EndArray
+                ) {
+                    this.error('Expected "]"');
+                }
+                this.currentToken = this.lexer.dropToken();
+                return this.expr() || TokenType.NumericType;
+            }
+
+            return this.expr() || identifier?.type;
         }
         if (this.currentToken.type === TokenType.Number) {
             const value = this.currentToken.value;
@@ -296,22 +276,22 @@ export class Parser {
                 break;
             }
         }
-        if (this.currentToken?.type === TokenType.StartArray) {
-            this.currentToken = this.lexer.dropToken();
-            this.expr();
-            // this.currentToken = this.lexer.dropToken();
-            if (
-                !this.currentToken ||
-                this.currentToken.type !== TokenType.EndArray
-            ) {
-                this.error('Expected "]"');
-            }
-            this.currentToken = this.lexer.dropToken();
-            return true;
-        }
+        // if (this.currentToken?.type === TokenType.StartArray) {
+        //     this.currentToken = this.lexer.dropToken();
+        //     this.expr();
+        //     // this.currentToken = this.lexer.dropToken();
+        //     if (
+        //         !this.currentToken ||
+        //         this.currentToken.type !== TokenType.EndArray
+        //     ) {
+        //         this.error('Expected "]"');
+        //     }
+        //     this.currentToken = this.lexer.dropToken();
+        //     return true;
+        // }
         if (this.currentToken?.type === TokenType.TernaryIfOperator) {
             this.currentToken = this.lexer.dropToken();
-            this.expr();
+            const firstType = this.expr();
             this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
@@ -320,10 +300,10 @@ export class Parser {
                 this.error('Expected ":"');
             }
             this.currentToken = this.lexer.dropToken();
-            this.expr();
-            return true;
+            const secondType = this.expr();
+            return firstType || secondType;
         }
-        return jobIsDone || false;
+        return jobIsDone ? TokenType.NumericType : undefined;
     }
 
     public stmt(): stmtResult {
@@ -625,7 +605,8 @@ export class Parser {
                     this.currentToken = this.lexer.dropToken();
                     return true;
                 } else {
-                    return this.expr() as boolean;
+                    this.expr();
+                    return true;
                 }
             } else {
                 this.error('Expected "{" or expression');
