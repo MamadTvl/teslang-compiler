@@ -3,7 +3,7 @@ import { Parser } from '../service/parser';
 import { SymbolTable } from '../service/symbol-table';
 import { TokenType } from '../types';
 
-const main = async () => {
+const main = () => {
     const lexer = new Lexer('test/index.teslang');
     const symbolTable = new SymbolTable(lexer);
     symbolTable.insert('print', {
