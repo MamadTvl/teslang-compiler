@@ -120,18 +120,24 @@ export type TypeResult =
     | TokenType.None
     | undefined;
 
-export type clistResult = Token[] | void;
+export type clistResult = Type[];
 export type defvarResult = boolean;
-export type exprResult = boolean;
+// todo: must return Exact Token or undefined
+export type exprResult =
+    | TokenType.ArrayType
+    | TokenType.NumericType
+    | TokenType.None
+    | boolean;
 export type stmtResult = boolean;
 export type bodyResult = boolean;
 export type flistResult = FunctionParameter[];
 export type funcResult = boolean;
+export type Type = TokenType.ArrayType | TokenType.NumericType | TokenType.None;
 
 export interface SymbolNode {
     scope: string;
     isFunction: boolean;
-    returnType?: TokenType.ArrayType | TokenType.NumericType | TokenType.None;
+    returnType?: Type;
     type?: TokenType.ArrayType | TokenType.NumericType | TokenType.None;
     parameters?: Array<FunctionParameter>;
 }
@@ -143,9 +149,16 @@ export interface SymbolTableInterface {
 
     insert(key: string, SymbolNode: SymbolNode, withError: boolean): boolean;
 
-    lookup(key: string, scope: string): SymbolNode | null;
+    lookup(
+        key: string,
+        scope: string,
+        withError: boolean,
+        isFunction: boolean,
+    ): SymbolNode | null;
 
     remove(key: string, scope: string): boolean;
+
+    error(message: string): void;
 }
 
 export interface FunctionParameter {

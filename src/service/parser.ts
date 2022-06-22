@@ -7,6 +7,7 @@ import {
     funcResult,
     FunctionParameter,
     stmtResult,
+    SymbolNode,
     Token,
     TokenType,
     TypeResult,
@@ -42,6 +43,29 @@ export class Parser {
         }`;
     }
 
+    private checkFunctionInputParams(
+        funcName: string,
+        func: SymbolNode,
+        inputParams: Type[],
+    ): void {
+        const expectedParams = func.parameters as FunctionParameter[];
+        if (expectedParams.length !== inputParams.length) {
+            this.symbolTable.error(
+                `expected ${expectedParams.length} input parameters but got ${inputParams.length} for function ${funcName}`,
+            );
+            return;
+        }
+        for (let i = 0; i < expectedParams.length; i++) {
+            if (expectedParams[i].type !== inputParams[i]) {
+                this.symbolTable.error(
+                    `expected ${expectedParams[i].type} but got ${
+                        inputParams[i] || 'undefined'
+                    } for function ${funcName}`,
+                );
+            }
+        }
+    }
+
     public type(): TypeResult {
         if (!this.currentToken) {
             return undefined;
@@ -60,13 +84,14 @@ export class Parser {
 
     public clist(): clistResult {
         if (!this.currentToken) {
-            return;
+            return [];
         }
-        const args: Token[] = [];
-        if (this.currentToken.type === TokenType.Literal) {
-            args.push(this.currentToken);
-        }
-        this.expr();
+        const args: Type[] = [];
+        // if (this.currentToken.type === TokenType.Literal) {
+        //     args.push(this.currentToken);
+        // }
+        const result = this.expr();
+        result && args.push(result as Type);
 
         // this.currentToken = this.lexer.dropToken();
         if (this.currentToken?.type === TokenType.Comma) {
@@ -104,14 +129,6 @@ export class Parser {
                     type: type,
                 });
             }
-            // this.symbolTable.put(
-            //     this.currentScope,
-            //     new Map<string, SymbolValue>().set(identifier, {
-            //         isFunction: false,
-            //         parametersCount: -1,
-            //         returnType: type,
-            //     }),
-            // );
             return true;
         }
         return false;
@@ -128,8 +145,12 @@ export class Parser {
                 this.currentToken?.type === TokenType.Literal
             ) {
                 const arrayName = this.currentToken.value;
+                this.symbolTable.lookup(arrayName, this.getScope(), true);
                 this.currentToken = this.lexer.dropToken();
-                this.expr();
+                const arrayIndexToken = this.expr();
+                if (arrayIndexToken !== TokenType.NumericType) {
+                    console.error('Expected number');
+                }
                 if (
                     !this.currentToken ||
                     this.currentToken.type !== TokenType.EndArray
@@ -144,7 +165,10 @@ export class Parser {
                     this.error('Expected "="');
                 }
                 this.currentToken = this.lexer.dropToken();
-                this.expr();
+                const value = this.expr();
+                if (value !== TokenType.NumericType) {
+                    this.error('Expected number');
+                }
                 if (
                     !this.currentToken ||
                     this.currentToken.type !== TokenType.SemiColon
@@ -162,17 +186,16 @@ export class Parser {
         }
         if (this.currentToken.type === TokenType.PlusOperator) {
             this.currentToken = this.lexer.dropToken();
-            this.expr();
-            return true;
+            return this.expr();
         }
         if (this.currentToken.type === TokenType.MinusOperator) {
             this.currentToken = this.lexer.dropToken();
-            this.expr();
-            return true;
+            return this.expr();
         }
 
         if (this.currentToken.type === TokenType.StartArray) {
             this.currentToken = this.lexer.dropToken();
+            //todo:
             this.clist();
             // this.currentToken = this.lexer.dropToken();
             if (
@@ -182,20 +205,38 @@ export class Parser {
                 this.error('Expected "]"');
             }
             this.currentToken = this.lexer.dropToken();
-            return true;
+            return TokenType.ArrayType;
         }
 
         if (this.currentToken.type === TokenType.Literal) {
             const literalValue = this.currentToken.value;
             this.currentToken = this.lexer.dropToken();
             if (this.currentToken?.type === TokenType.AssignmentOperator) {
+                const identifier = this.symbolTable.lookup(
+                    literalValue,
+                    this.getScope(),
+                    true,
+                );
                 this.currentToken = this.lexer.dropToken();
                 // const symbol = this.symbolTable.get(this.currentScope);
-                return this.expr();
+                const result = this.expr();
+                if (identifier?.type !== result) {
+                    this.symbolTable.error(
+                        `Cannot Assign ${result} to ${identifier?.type}`,
+                    );
+                }
+                return result;
             }
             if (this.currentToken?.type === TokenType.OpenParen) {
+                const func = this.symbolTable.lookup(
+                    literalValue,
+                    this.getScope(),
+                    true,
+                    true,
+                );
                 this.currentToken = this.lexer.dropToken();
-                this.clist();
+                const inputParams = this.clist();
+
                 if (this.currentToken?.type !== TokenType.CloseParen) {
                     this.currentToken = this.lexer.dropToken();
                 }
@@ -205,16 +246,29 @@ export class Parser {
                 ) {
                     this.error('Expected ")"');
                 }
+                func &&
+                    this.checkFunctionInputParams(
+                        literalValue,
+                        func,
+                        inputParams,
+                    );
                 this.currentToken = this.lexer.dropToken();
-                return true;
+                return func?.returnType || true;
             }
-            return this.expr();
+            // todo: add if for iden[expr]
+            const identifier = this.symbolTable.lookup(
+                literalValue,
+                this.getScope(),
+                true,
+            );
+            this.expr();
+            return identifier?.type || true;
         }
         if (this.currentToken.type === TokenType.Number) {
             const value = this.currentToken.value;
 
             this.currentToken = this.lexer.dropToken();
-            return true;
+            return TokenType.NumericType;
         }
         let jobIsDone = false;
         while (
@@ -235,6 +289,7 @@ export class Parser {
             ].includes(this.currentToken.type)
         ) {
             this.currentToken = this.lexer.dropToken();
+            // result must be numeric
             this.expr();
             jobIsDone = true;
             if (!this.currentToken) {
@@ -275,7 +330,7 @@ export class Parser {
         if (!this.currentToken) {
             return false;
         }
-        // what we do when we have a literal
+
         if (this.expr()) {
             if (this.currentToken.type !== TokenType.SemiColon) {
                 this.error('Expected ";"');
@@ -427,6 +482,7 @@ export class Parser {
             return true;
         }
         if (this.currentToken?.type === TokenType.StartBlock) {
+            this.currentScope++;
             this.currentToken = this.lexer.dropToken();
             this.body();
             // this.currentToken = this.lexer.dropToken();
@@ -437,6 +493,7 @@ export class Parser {
                 this.error('Expected "}"');
             }
             this.currentToken = this.lexer.dropToken();
+            this.currentScope--;
             return true;
         }
         return this.func();
@@ -568,7 +625,7 @@ export class Parser {
                     this.currentToken = this.lexer.dropToken();
                     return true;
                 } else {
-                    return this.expr();
+                    return this.expr() as boolean;
                 }
             } else {
                 this.error('Expected "{" or expression');
