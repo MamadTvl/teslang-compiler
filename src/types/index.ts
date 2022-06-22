@@ -122,12 +122,11 @@ export type TypeResult =
 
 export type clistResult = Type[];
 export type defvarResult = boolean;
-// todo: must return Exact Token or undefined
 export type exprResult =
     | TokenType.ArrayType
     | TokenType.NumericType
     | TokenType.None
-    | boolean;
+    | undefined;
 export type stmtResult = boolean;
 export type bodyResult = boolean;
 export type flistResult = FunctionParameter[];
