@@ -145,7 +145,6 @@ export class Lexer {
         } else {
             return false;
         }
-        // todo: test nextChar with literalRegexNext !
         const nextChar = this.read();
         if (
             nextChar &&
