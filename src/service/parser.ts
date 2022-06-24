@@ -24,7 +24,13 @@ export class Parser {
     private currentFunction = '';
     private lexer: Lexer;
     private parserError;
-    private panicing = false;
+    private panicking = false;
+    private synchronizingSet: Array<TokenType> = [
+        TokenType.SemiColon,
+        // TokenType.AssignmentOperator,
+        // TokenType.EndBlock,
+        // TokenType.CloseParen,
+    ];
 
     constructor(
         currentToken: Token | undefined,
@@ -669,8 +675,11 @@ export class Parser {
                 currentToken || 'undefined'
             } on ${this.lexer.line}:${this.lexer.column} `,
         );
-        this.panicing = true;
-        while (this.currentToken?.type !== TokenType.SemiColon) {
+        this.panicking = true;
+        while (
+            this.currentToken &&
+            !this.synchronizingSet.includes(this.currentToken.type)
+        ) {
             this.currentToken = this.lexer.dropToken();
         }
     }
