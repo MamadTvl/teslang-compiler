@@ -10,7 +10,7 @@ export class Lexer {
     private prvChars: string[] = [];
     private tokenStack: Token[] = [];
     literalRegex = /[a-zA-Z]/;
-    literalRegexNext = /[a-zA-Z0-9]/;
+    literalRegexNext = /[a-zA-Z0-9_]/;
     numberRegex = /[0-9]+/;
     commentRegex = /#[^\n]\n/;
     tokenStringMap: Array<{
@@ -21,19 +21,14 @@ export class Lexer {
         { key: 'return', value: { type: TokenType.Return } },
         { key: 'false', value: { type: TokenType.False } },
         { key: 'array', value: { type: TokenType.ArrayType } },
-        // { key: 'Array', value: { type: TokenType.ArrayFunction } },
         { key: 'notif', value: { type: TokenType.Else } },
-        // { key: 'print', value: { type: TokenType.PrintFunction } },
-        // { key: 'input', value: { type: TokenType.InputFunction } },
         { key: 'loop', value: { type: TokenType.Loop } },
         { key: 'true', value: { type: TokenType.True } },
         { key: 'none', value: { type: TokenType.None } },
-        { key: 'exit', value: { type: TokenType.ExitFunction } },
         { key: 'and', value: { type: TokenType.AndOperator } },
         { key: 'or', value: { type: TokenType.OrOperator } },
         { key: 'not', value: { type: TokenType.NotOperator } },
         { key: 'for', value: { type: TokenType.For } },
-        { key: 'len', value: { type: TokenType.LengthFunction } },
         { key: 'let', value: { type: TokenType.DefineVariableOperator } },
         { key: 'if', value: { type: TokenType.If } },
         { key: 'fc', value: { type: TokenType.Function } },
