@@ -23,9 +23,13 @@ fc find(A : array, n : numeric) -> numeric : {
 
 fc main() -> array : {
     #let A : numeric;
-    let a : numeric;
+    let a : numeric = 2;
     let A : array = [1,2,3];
-    A[a] = 313;
+    let newArray : array = Array([1,2]);
+    let array_Length : array = len(A);
+    let b : array = a == 2 ? [4,2,1] : 5;
+    let b : array = a == 2 ? [4,2,1] : [5];
+    A[a] = [1,2,3]
     A[1] = 5;
     A[2] = 5;
     print(a);
@@ -34,6 +38,7 @@ fc main() -> array : {
     print(find(A, a));
     print(find(A));
     print(find(a, A));
+    exit();
     return A;
 }
 fc GG(A : array) -> none : {
