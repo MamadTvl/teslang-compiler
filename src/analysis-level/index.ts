@@ -40,9 +40,9 @@ const main = () => {
         returnType: TokenType.None,
         parameters: [],
     });
-    symbolTable.insert('array', {
+    symbolTable.insert('Array', {
         isFunction: true,
-        scope: 'array-0',
+        scope: 'Array-0',
         returnType: TokenType.ArrayType,
         parameters: [
             {
