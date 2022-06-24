@@ -307,7 +307,7 @@ export class Parser {
         if (this.currentToken?.type === TokenType.TernaryIfOperator) {
             this.currentToken = this.lexer.dropToken();
             const firstType = this.expr();
-            this.currentToken = this.lexer.dropToken();
+            // this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.Colon
