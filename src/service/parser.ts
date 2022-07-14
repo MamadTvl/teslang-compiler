@@ -268,6 +268,27 @@ export class Parser {
             const value = this.currentToken.value;
 
             this.currentToken = this.lexer.dropToken();
+            if (
+                this.currentToken &&
+                [
+                    TokenType.MinusOperator,
+                    TokenType.PlusOperator,
+                    TokenType.MultiplyOperator,
+                    TokenType.DivideOperator,
+                    TokenType.ModulusOperator,
+                    TokenType.GreaterThanOperator,
+                    TokenType.LessThanOperator,
+                    TokenType.GreaterThanOrEqualOperator,
+                    TokenType.LessThanOrEqualOperator,
+                    TokenType.EqualOperator,
+                    TokenType.AndOperator,
+                    TokenType.OrOperator,
+                ].includes(this.currentToken.type)
+            ) {
+                this.currentToken = this.lexer.dropToken();
+                return this.expr();
+            }
+
             return TokenType.NumericType;
         }
 
