@@ -122,11 +122,10 @@ export type TypeResult =
 
 export type clistResult = Type[];
 export type defvarResult = boolean;
-export type exprResult =
-    | TokenType.ArrayType
-    | TokenType.NumericType
-    | TokenType.None
-    | undefined;
+export interface exprResult {
+    type: TypeResult;
+    register: string | null;
+}
 export type stmtResult = boolean;
 export type bodyResult = boolean;
 export type flistResult = FunctionParameter[];
@@ -139,6 +138,7 @@ export interface SymbolNode {
     returnType?: Type;
     type?: TokenType.ArrayType | TokenType.NumericType | TokenType.None;
     parameters?: Array<FunctionParameter>;
+    register?: string;
 }
 
 export interface SymbolTableInterface {
@@ -164,4 +164,41 @@ export interface SymbolTableInterface {
 export interface FunctionParameter {
     type: TokenType.ArrayType | TokenType.NumericType | TokenType.None;
     name: string;
+}
+
+export type OperationType =
+    | TokenType.GreaterThanOperator
+    | TokenType.GreaterThanOrEqualOperator
+    | TokenType.LessThanOperator
+    | TokenType.LessThanOrEqualOperator
+    | TokenType.EqualOperator
+    | TokenType.PlusOperator
+    | TokenType.MinusOperator
+    | TokenType.DivideOperator
+    | TokenType.MultiplyOperator;
+export interface IRInterface {
+    byteCode: string[];
+    LabelCounter: number;
+    RegisterCounter: number;
+    label(): string;
+    const(num: number): string;
+    name(variable: string): string;
+    temp(): string;
+    saveCode(): void;
+    runCode(): void;
+    assignment(r1: string, r2: string | number): void;
+    operation(
+        r1: string,
+        r2: string | number,
+        r3: string | number,
+        type: OperationType,
+    ): void;
+    jump(label: string): void;
+    if(r1: string, label: string): void;
+    ifNot(r1: string, label: string): void;
+    callFunction(name: string, args: Array<string>): void;
+    defineFunction(name: string): void;
+    return(): void;
+    setRegisterCounter(number: number): void;
+    // todo: define array, store and load
 }

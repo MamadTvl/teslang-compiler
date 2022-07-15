@@ -4,7 +4,7 @@ import { SymbolTable } from '../service/symbol-table';
 import { TokenType } from '../types';
 
 const main = () => {
-    const lexer = new Lexer('test/index.teslang');
+    const lexer = new Lexer('test/2.teslang');
     const symbolTable = new SymbolTable(lexer);
     symbolTable.insert('print', {
         isFunction: true,
