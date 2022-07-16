@@ -175,7 +175,8 @@ export type OperationType =
     | TokenType.PlusOperator
     | TokenType.MinusOperator
     | TokenType.DivideOperator
-    | TokenType.MultiplyOperator;
+    | TokenType.MultiplyOperator
+    | TokenType.ModulusOperator;
 export interface IRInterface {
     byteCode: string[];
     LabelCounter: number;

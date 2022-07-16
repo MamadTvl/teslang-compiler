@@ -75,6 +75,9 @@ export class IR implements IRInterface {
             case TokenType.DivideOperator:
                 operator = 'div';
                 break;
+            case TokenType.ModulusOperator:
+                operator = 'mod';
+                break;
         }
         this.byteCode.push(`${operator} ${r1}, ${r2}, ${r3}`);
     }
@@ -120,6 +123,7 @@ export class IR implements IRInterface {
             TokenType.PlusOperator,
         );
         this.byteCode.push(`call mem, ${arrayRegister}`);
+        this.storeInArray(arrayRegister, sizeRegister);
         return arrayRegister;
     }
 
@@ -161,6 +165,11 @@ export class IR implements IRInterface {
     defineFunction(name: string): void {
         this.byteCode.push('proc ' + name);
     }
+
+    setLabel(label: string): void {
+        this.byteCode.push(`${label}:`);
+    }
+
     return(): void {
         this.byteCode.push('ret');
     }

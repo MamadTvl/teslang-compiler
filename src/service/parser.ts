@@ -90,7 +90,6 @@ export class Parser {
             return undefined;
         }
     }
-    // todo: clistResult must change -> f(1,2)  or [1,2]
     public clist(): exprResult[] {
         if (!this.currentToken) {
             return [];
@@ -169,7 +168,8 @@ export class Parser {
         // this.currentToken = this.lexer.dropToken();
         while (
             this.currentToken?.type === TokenType.MultiplyOperator ||
-            this.currentToken?.type === TokenType.DivideOperator
+            this.currentToken?.type === TokenType.DivideOperator ||
+            this.currentToken?.type === TokenType.ModulusOperator
         ) {
             const operationType = this.currentToken.type;
             this.currentToken = this.lexer.dropToken();
@@ -228,7 +228,8 @@ export class Parser {
         // this.currentToken = this.lexer.dropToken();
         while (
             this.currentToken?.type === TokenType.MultiplyOperator ||
-            this.currentToken?.type === TokenType.DivideOperator
+            this.currentToken?.type === TokenType.DivideOperator ||
+            this.currentToken?.type === TokenType.ModulusOperator
         ) {
             const operationType = this.currentToken.type;
             this.currentToken = this.lexer.dropToken();
@@ -246,7 +247,7 @@ export class Parser {
             resultRegister = tempRegister;
         }
         return {
-            type: TokenType.NumericType,
+            type: first.type,
             register: resultRegister,
         };
     }
@@ -318,7 +319,7 @@ export class Parser {
             resultRegister = tempRegister;
         }
         return {
-            type: TokenType.NumericType,
+            type: first.type,
             register: resultRegister,
         };
     }
@@ -333,7 +334,6 @@ export class Parser {
                 return this.expr();
             // todo: do something about it
             // case TokenType.PlusOperator:
-            //     this.lexer.debug();
             //     this.currentToken = this.lexer.dropToken();
             //     return this.expr();
             // // todo: do something about it
@@ -434,6 +434,10 @@ export class Parser {
                     } else if (literalValue === 'input') {
                         returnRegister = this.ir.temp();
                         this.ir.getInput(returnRegister);
+                    } else if (literalValue === 'len') {
+                        returnRegister = this.ir.loadFromArray(
+                            inputParams[0].register || '',
+                        );
                     } else {
                         this.ir.callFunction(
                             literalValue,
@@ -503,13 +507,13 @@ export class Parser {
                 }
                 this.currentToken && this.lexer.getBackToken(this.currentToken);
                 this.currentToken = literalToken;
-
                 return (
                     this.addLiteralExpr() || {
                         type: identifier?.type,
                         register: identifier?.register || null,
                     }
                 );
+            // todo:
             case TokenType.TernaryIfOperator:
                 this.currentToken = this.lexer.dropToken();
                 const firstType = this.expr();
@@ -582,8 +586,8 @@ export class Parser {
         }
         if (this.currentToken.type === TokenType.If) {
             this.currentToken = this.lexer.dropToken();
-            this.expr();
-            // this.currentToken = this.lexer.dropToken();
+            const condition = this.expr();
+            const outLabel = this.ir.label();
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.Colon
@@ -591,25 +595,24 @@ export class Parser {
                 this.error('Expected ":"');
             }
             this.currentToken = this.lexer.dropToken();
-            if (this.stmt()) {
-                return true;
-            }
-            this.currentToken = this.lexer.dropToken();
-            if (
-                !this.currentToken ||
-                this.currentToken.type !== TokenType.Else
-            ) {
-                this.error('Expected "ifnot"');
-            }
-            this.currentToken = this.lexer.dropToken();
-            if (
-                !this.currentToken ||
-                this.currentToken.type !== TokenType.Colon
-            ) {
-                this.error('Expected ":"');
-            }
-            this.currentToken = this.lexer.dropToken();
+            this.ir.ifNot(condition?.register || '', outLabel);
             this.stmt();
+            this.ir.setLabel(outLabel);
+            // this.currentToken = this.lexer.dropToken();
+            if (this.currentToken && this.currentToken.type == TokenType.Else) {
+                const elseLabel = this.ir.label();
+                this.ir.if(condition?.register || '', elseLabel);
+                this.currentToken = this.lexer.dropToken();
+                if (
+                    !this.currentToken ||
+                    this.currentToken.type !== TokenType.Colon
+                ) {
+                    this.error('Expected ":"');
+                }
+                this.currentToken = this.lexer.dropToken();
+                this.stmt();
+                this.ir.setLabel(elseLabel);
+            }
         }
         if (this.currentToken?.type === TokenType.Loop) {
             this.expr();
@@ -661,35 +664,21 @@ export class Parser {
                 this.error('Expected "<-"');
             }
             this.currentToken = this.lexer.dropToken();
-            if (
-                this.currentToken &&
-                this.currentToken.type === TokenType.Literal
-            ) {
-                arrayIdentifier = this.currentToken.value;
-            }
             arrayItemIdentifier &&
                 this.symbolTable.insert(arrayItemIdentifier, {
                     isFunction: false,
                     type: TokenType.NumericType,
                     scope: this.getScope(undefined, this.currentScope + 1),
-                    register: 'null',
+                    register: this.ir.temp(),
                 });
             arrayIndexIdentifier &&
                 this.symbolTable.insert(arrayIndexIdentifier, {
                     isFunction: false,
                     type: TokenType.NumericType,
                     scope: this.getScope(undefined, this.currentScope + 1),
-                    register: 'null',
+                    register: this.ir.temp(),
                 });
-            if (arrayIdentifier) {
-                // check if the array is defined
-                this.symbolTable.lookup(
-                    arrayIdentifier,
-                    this.getScope(undefined, this.currentScope + 1),
-                    true,
-                );
-            }
-            this.expr();
+            const array = this.expr();
             // this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||

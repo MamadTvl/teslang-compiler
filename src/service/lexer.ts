@@ -21,7 +21,7 @@ export class Lexer {
         { key: 'return', value: { type: TokenType.Return } },
         { key: 'false', value: { type: TokenType.False } },
         { key: 'array', value: { type: TokenType.ArrayType } },
-        { key: 'notif', value: { type: TokenType.Else } },
+        { key: 'ifnot', value: { type: TokenType.Else } },
         { key: 'loop', value: { type: TokenType.Loop } },
         { key: 'true', value: { type: TokenType.True } },
         { key: 'none', value: { type: TokenType.None } },
