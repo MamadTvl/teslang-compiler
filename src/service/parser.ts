@@ -75,7 +75,7 @@ export class Parser {
         }
     }
 
-    public type(): TypeResult {
+    private type(): TypeResult {
         if (!this.currentToken) {
             return undefined;
         }
@@ -90,7 +90,7 @@ export class Parser {
             return undefined;
         }
     }
-    public clist(): exprResult[] {
+    private clist(): exprResult[] {
         if (!this.currentToken) {
             return [];
         }
@@ -112,7 +112,7 @@ export class Parser {
         return args;
     }
 
-    public defvar(): defvarResult {
+    private defvar(): defvarResult {
         if (!this.currentToken) {
             return false;
         }
@@ -156,7 +156,7 @@ export class Parser {
         return false;
     }
 
-    public multiplyExpr(): exprResult | undefined {
+    private multiplyExpr(): exprResult | undefined {
         if (!this.currentToken) {
             return undefined;
         }
@@ -192,7 +192,7 @@ export class Parser {
         };
     }
 
-    public numericExpr(): exprResult | undefined {
+    private numericExpr(): exprResult | undefined {
         if (!this.currentToken) {
             return undefined;
         }
@@ -229,7 +229,7 @@ export class Parser {
         return undefined;
     }
 
-    public addExpr(): exprResult | undefined {
+    private addExpr(): exprResult | undefined {
         const first = this.multiplyExpr();
         if (!first) {
             return undefined;
@@ -296,8 +296,47 @@ export class Parser {
         };
     }
 
+    private conditionalExpr(): exprResult | undefined {
+        if (!this.currentToken) {
+            return undefined;
+        }
+        const nextToken = this.lexer.dropToken();
+        if (!nextToken) {
+            return undefined;
+        }
+        this.lexer.getBackToken(nextToken);
+        const first = this.expr();
+        if (!first) {
+            return undefined;
+        }
+        const resultRegister = first.register;
+        const tempRegister = this.ir.const(
+            nextToken.type === TokenType.AndOperator ? 0 : 1,
+        );
+        const outLabel = this.ir.label();
+        if (nextToken.type === TokenType.AndOperator) {
+            this.ir.ifNot(first.register || '', outLabel);
+        } else {
+            this.ir.if(first.register || '', outLabel);
+        }
+        while (
+            this.currentToken?.type === TokenType.AndOperator ||
+            this.currentToken?.type === TokenType.OrOperator
+        ) {
+            this.currentToken = this.lexer.dropToken();
+            const second = this.conditionalExpr();
+            this.ir.assignment(tempRegister, second?.register || '');
+            this.ir.assignment(resultRegister || '', tempRegister || '');
+        }
+        this.ir.setLabel(outLabel);
+        return {
+            type: TokenType.NumericType,
+            register: resultRegister,
+        };
+    }
+
     private ignoreLiteralCase = false;
-    public expr(): exprResult | undefined {
+    private expr(): exprResult | undefined {
         if (!this.currentToken) {
             return undefined;
         }
@@ -545,7 +584,7 @@ export class Parser {
         }
         if (this.currentToken.type === TokenType.If) {
             this.currentToken = this.lexer.dropToken();
-            const condition = this.expr();
+            const condition = this.conditionalExpr();
             const outLabel = this.ir.label();
             if (
                 !this.currentToken ||
