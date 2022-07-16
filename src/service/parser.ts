@@ -160,7 +160,7 @@ export class Parser {
         if (!this.currentToken) {
             return undefined;
         }
-        const first = this.NumericExpr();
+        const first = this.numericExpr();
         if (!first) {
             return undefined;
         }
@@ -173,7 +173,7 @@ export class Parser {
         ) {
             const operationType = this.currentToken.type;
             this.currentToken = this.lexer.dropToken();
-            const second = this.NumericExpr();
+            const second = this.numericExpr();
             const secondRegister = second?.register;
             const tempRegister = this.ir.temp();
             resultRegister &&
@@ -192,67 +192,7 @@ export class Parser {
         };
     }
 
-    public NumericExpr(): exprResult | undefined {
-        if (!this.currentToken) {
-            return undefined;
-        }
-        if (this.currentToken.type === TokenType.OpenParen) {
-            this.currentToken = this.lexer.dropToken();
-            const expr = this.expr();
-            if (this.currentToken?.type !== TokenType.CloseParen) {
-                this.error('Expected ")"');
-            }
-            this.currentToken = this.lexer.dropToken();
-            return expr;
-        }
-        if (this.currentToken.type === TokenType.Number) {
-            const value = this.currentToken.value;
-            this.currentToken = this.lexer.dropToken();
-            return {
-                type: TokenType.NumericType,
-                register: this.ir.const(+value),
-            };
-        }
-        return undefined;
-    }
-
-    public multiplyLiteralExpr(): exprResult | undefined {
-        if (!this.currentToken) {
-            return undefined;
-        }
-        const first = this.literalExpr();
-        if (!first) {
-            return undefined;
-        }
-        let resultRegister = first?.register;
-        // this.currentToken = this.lexer.dropToken();
-        while (
-            this.currentToken?.type === TokenType.MultiplyOperator ||
-            this.currentToken?.type === TokenType.DivideOperator ||
-            this.currentToken?.type === TokenType.ModulusOperator
-        ) {
-            const operationType = this.currentToken.type;
-            this.currentToken = this.lexer.dropToken();
-            const second = this.literalExpr();
-            const secondRegister = second?.register;
-            const tempRegister = this.ir.temp();
-            resultRegister &&
-                secondRegister &&
-                this.ir.operation(
-                    tempRegister,
-                    resultRegister,
-                    secondRegister,
-                    operationType,
-                );
-            resultRegister = tempRegister;
-        }
-        return {
-            type: first.type,
-            register: resultRegister,
-        };
-    }
-
-    public literalExpr(): exprResult | undefined {
+    public numericExpr(): exprResult | undefined {
         if (!this.currentToken) {
             return undefined;
         }
@@ -289,11 +229,8 @@ export class Parser {
         return undefined;
     }
 
-    public addLiteralExpr(): exprResult | undefined {
-        if (!this.currentToken) {
-            return undefined;
-        }
-        const first = this.multiplyLiteralExpr();
+    public addExpr(): exprResult | undefined {
+        const first = this.multiplyExpr();
         if (!first) {
             return undefined;
         }
@@ -305,7 +242,7 @@ export class Parser {
         ) {
             const operationType = this.currentToken.type;
             this.currentToken = this.lexer.dropToken();
-            const second = this.multiplyLiteralExpr();
+            const second = this.multiplyExpr();
             const secondRegister = second?.register;
             const tempRegister = this.ir.temp();
             resultRegister &&
@@ -324,6 +261,42 @@ export class Parser {
         };
     }
 
+    private compareExpr(): exprResult | undefined {
+        const first = this.addExpr();
+        if (!first) {
+            return undefined;
+        }
+        let resultRegister = first?.register;
+        // this.currentToken = this.lexer.dropToken();
+        while (
+            this.currentToken?.type === TokenType.EqualOperator ||
+            this.currentToken?.type === TokenType.LessThanOperator ||
+            this.currentToken?.type === TokenType.LessThanOrEqualOperator ||
+            this.currentToken?.type === TokenType.GreaterThanOperator ||
+            this.currentToken?.type === TokenType.GreaterThanOrEqualOperator
+        ) {
+            const operationType = this.currentToken.type;
+            this.currentToken = this.lexer.dropToken();
+            const second = this.addExpr();
+            const secondRegister = second?.register;
+            const tempRegister = this.ir.temp();
+            resultRegister &&
+                secondRegister &&
+                this.ir.operation(
+                    tempRegister,
+                    resultRegister,
+                    secondRegister,
+                    operationType,
+                );
+            resultRegister = tempRegister;
+        }
+        return {
+            type: first.type,
+            register: resultRegister,
+        };
+    }
+
+    private ignoreLiteralCase = false;
     public expr(): exprResult | undefined {
         if (!this.currentToken) {
             return undefined;
@@ -380,6 +353,10 @@ export class Parser {
                     register: arrayRegister,
                 };
             case TokenType.Literal:
+                if (this.ignoreLiteralCase) {
+                    this.ignoreLiteralCase = false;
+                    break;
+                }
                 const literalToken = this.currentToken;
                 const literalValue = this.currentToken.value;
                 this.currentToken = this.lexer.dropToken();
@@ -507,8 +484,9 @@ export class Parser {
                 }
                 this.currentToken && this.lexer.getBackToken(this.currentToken);
                 this.currentToken = literalToken;
+                this.ignoreLiteralCase = true;
                 return (
-                    this.addLiteralExpr() || {
+                    this.expr() || {
                         type: identifier?.type,
                         register: identifier?.register || null,
                     }
@@ -528,35 +506,7 @@ export class Parser {
                 const secondType = this.expr();
                 return firstType || secondType;
         }
-        const first = this.multiplyExpr();
-        if (!first) {
-            return undefined;
-        }
-        let resultRegister = first?.register;
-        // this.currentToken = this.lexer.dropToken();
-        while (
-            this.currentToken?.type === TokenType.PlusOperator ||
-            this.currentToken?.type === TokenType.MinusOperator
-        ) {
-            const operationType = this.currentToken.type;
-            this.currentToken = this.lexer.dropToken();
-            const second = this.multiplyExpr();
-            const secondRegister = second?.register;
-            const tempRegister = this.ir.temp();
-            resultRegister &&
-                secondRegister &&
-                this.ir.operation(
-                    tempRegister,
-                    resultRegister,
-                    secondRegister,
-                    operationType,
-                );
-            resultRegister = tempRegister;
-        }
-        return {
-            type: TokenType.NumericType,
-            register: resultRegister,
-        };
+        return this.compareExpr();
     }
 
     public stmt(): stmtResult {
