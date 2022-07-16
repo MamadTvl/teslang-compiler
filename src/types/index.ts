@@ -198,6 +198,10 @@ export interface IRInterface {
     ifNot(r1: string, label: string): void;
     callFunction(name: string, args: Array<string>): void;
     defineFunction(name: string): void;
+    defineArray(arrayRegister: string, sizeRegister: string): string;
+    findArrayIndex(arrayRegister: string, indexRegister: string): string;
+    storeInArray(arrayRegisterAddress: string, valueRegister: string): void;
+    loadFromArray(arrayRegisterAddress: string): string;
     return(): void;
     setRegisterCounter(number: number): void;
     // todo: define array, store and load

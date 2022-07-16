@@ -1,12 +1,10 @@
 import {
     bodyResult,
-    clistResult,
     defvarResult,
     exprResult,
     flistResult,
     funcResult,
     FunctionParameter,
-    OperationType,
     stmtResult,
     SymbolNode,
     Token,
@@ -17,6 +15,7 @@ import { ParserError } from './error';
 import { IR } from './IR';
 import { Lexer } from './lexer';
 import { SymbolTable } from './symbol-table';
+import fs from 'fs';
 
 type parserReturnType = Token | boolean;
 
@@ -92,19 +91,19 @@ export class Parser {
         }
     }
     // todo: clistResult must change -> f(1,2)  or [1,2]
-    public clist(): clistResult {
+    public clist(): exprResult[] {
         if (!this.currentToken) {
             return [];
         }
-        const args: Type[] = [];
+        const args: exprResult[] = [];
         const result = this.expr();
 
-        if (!result) {
+        if (!result?.type && this.currentToken?.type === TokenType.Comma) {
             this.symbolTable.error(
                 'expected numeric or array or none type here',
             );
         }
-        result?.type && args.push(result.type);
+        result && args.push(result);
 
         if (this.currentToken?.type === TokenType.Comma) {
             this.currentToken = this.lexer.dropToken();
@@ -217,6 +216,113 @@ export class Parser {
         return undefined;
     }
 
+    public multiplyLiteralExpr(): exprResult | undefined {
+        if (!this.currentToken) {
+            return undefined;
+        }
+        const first = this.literalExpr();
+        if (!first) {
+            return undefined;
+        }
+        let resultRegister = first?.register;
+        // this.currentToken = this.lexer.dropToken();
+        while (
+            this.currentToken?.type === TokenType.MultiplyOperator ||
+            this.currentToken?.type === TokenType.DivideOperator
+        ) {
+            const operationType = this.currentToken.type;
+            this.currentToken = this.lexer.dropToken();
+            const second = this.literalExpr();
+            const secondRegister = second?.register;
+            const tempRegister = this.ir.temp();
+            resultRegister &&
+                secondRegister &&
+                this.ir.operation(
+                    tempRegister,
+                    resultRegister,
+                    secondRegister,
+                    operationType,
+                );
+            resultRegister = tempRegister;
+        }
+        return {
+            type: TokenType.NumericType,
+            register: resultRegister,
+        };
+    }
+
+    public literalExpr(): exprResult | undefined {
+        if (!this.currentToken) {
+            return undefined;
+        }
+        if (this.currentToken.type === TokenType.OpenParen) {
+            this.currentToken = this.lexer.dropToken();
+            const expr = this.expr();
+            if (this.currentToken?.type !== TokenType.CloseParen) {
+                this.error('Expected ")"');
+            }
+            this.currentToken = this.lexer.dropToken();
+            return expr;
+        }
+        if (this.currentToken.type === TokenType.Number) {
+            const value = this.currentToken.value;
+            this.currentToken = this.lexer.dropToken();
+            return {
+                type: TokenType.NumericType,
+                register: this.ir.const(+value),
+            };
+        }
+        if (this.currentToken.type === TokenType.Literal) {
+            const name = this.currentToken.value;
+            this.currentToken = this.lexer.dropToken();
+            const identifier = this.symbolTable.lookup(
+                name,
+                this.getScope(),
+                true,
+            );
+            return {
+                type: identifier?.type,
+                register: identifier?.register || null,
+            };
+        }
+        return undefined;
+    }
+
+    public addLiteralExpr(): exprResult | undefined {
+        if (!this.currentToken) {
+            return undefined;
+        }
+        const first = this.multiplyLiteralExpr();
+        if (!first) {
+            return undefined;
+        }
+        let resultRegister = first?.register;
+        // this.currentToken = this.lexer.dropToken();
+        while (
+            this.currentToken?.type === TokenType.PlusOperator ||
+            this.currentToken?.type === TokenType.MinusOperator
+        ) {
+            const operationType = this.currentToken.type;
+            this.currentToken = this.lexer.dropToken();
+            const second = this.multiplyLiteralExpr();
+            const secondRegister = second?.register;
+            const tempRegister = this.ir.temp();
+            resultRegister &&
+                secondRegister &&
+                this.ir.operation(
+                    tempRegister,
+                    resultRegister,
+                    secondRegister,
+                    operationType,
+                );
+            resultRegister = tempRegister;
+        }
+        return {
+            type: TokenType.NumericType,
+            register: resultRegister,
+        };
+    }
+
     public expr(): exprResult | undefined {
         if (!this.currentToken) {
             return undefined;
@@ -226,17 +332,42 @@ export class Parser {
                 this.currentToken = this.lexer.dropToken();
                 return this.expr();
             // todo: do something about it
-            case TokenType.PlusOperator:
-                this.currentToken = this.lexer.dropToken();
-                return this.expr();
-            // todo: do something about it
-            case TokenType.MinusOperator:
-                this.currentToken = this.lexer.dropToken();
-                return this.expr();
+            // case TokenType.PlusOperator:
+            //     this.lexer.debug();
+            //     this.currentToken = this.lexer.dropToken();
+            //     return this.expr();
+            // // todo: do something about it
+            // case TokenType.MinusOperator:
+            //     this.currentToken = this.lexer.dropToken();
+            //     return this.expr();
             //todo: clist related [1,2]
             case TokenType.StartArray:
                 this.currentToken = this.lexer.dropToken();
-                this.clist();
+                const elements = this.clist();
+                const arrayLengthRegister = this.ir.const(elements.length);
+                const arrayRegister = this.ir.defineArray(arrayLengthRegister);
+                for (let i = 0; i < elements.length; i++) {
+                    const element = elements[i];
+                    if (element.type !== TokenType.NumericType) {
+                        this.symbolTable.error(
+                            `Expected numeric type but got ${element.type}`,
+                        );
+                    }
+                    if (!element.register) {
+                        this.symbolTable.error(
+                            `Expected number but got undefined`,
+                        );
+                    }
+                    const indexRegister = this.ir.const(i);
+                    const indexAddressRegister = this.ir.findArrayIndex(
+                        arrayRegister,
+                        indexRegister,
+                    );
+                    this.ir.storeInArray(
+                        indexAddressRegister,
+                        element.register || '',
+                    );
+                }
                 if (
                     !this.currentToken ||
                     this.currentToken.type !== TokenType.EndArray
@@ -246,9 +377,10 @@ export class Parser {
                 this.currentToken = this.lexer.dropToken();
                 return {
                     type: TokenType.ArrayType,
-                    register: null,
+                    register: arrayRegister,
                 };
             case TokenType.Literal:
+                const literalToken = this.currentToken;
                 const literalValue = this.currentToken.value;
                 this.currentToken = this.lexer.dropToken();
                 if (this.currentToken?.type === TokenType.AssignmentOperator) {
@@ -272,7 +404,6 @@ export class Parser {
                     }
                     return result;
                 }
-                // todo: clist related f(1,2)
                 if (this.currentToken?.type === TokenType.OpenParen) {
                     const func = this.symbolTable.lookup(
                         literalValue,
@@ -282,10 +413,6 @@ export class Parser {
                     );
                     this.currentToken = this.lexer.dropToken();
                     const inputParams = this.clist();
-
-                    if (this.currentToken?.type !== TokenType.CloseParen) {
-                        this.currentToken = this.lexer.dropToken();
-                    }
                     if (
                         !this.currentToken ||
                         this.currentToken?.type !== TokenType.CloseParen
@@ -296,12 +423,28 @@ export class Parser {
                         this.checkFunctionInputParams(
                             literalValue,
                             func,
-                            inputParams,
+                            inputParams.map(
+                                (item) => item.type || TokenType.None,
+                            ),
                         );
+                    let returnRegister = null;
+                    if (literalValue === 'Array') {
+                        const sizeRegister = inputParams[0].register || '';
+                        returnRegister = this.ir.defineArray(sizeRegister);
+                    } else if (literalValue === 'input') {
+                        returnRegister = this.ir.temp();
+                        this.ir.getInput(returnRegister);
+                    } else {
+                        this.ir.callFunction(
+                            literalValue,
+                            inputParams.map((param) => param.register || ''),
+                        );
+                        returnRegister = inputParams[0].register;
+                    }
                     this.currentToken = this.lexer.dropToken();
                     return {
                         type: func?.returnType || undefined,
-                        register: null,
+                        register: returnRegister,
                     };
                 }
                 const identifier = this.symbolTable.lookup(
@@ -322,6 +465,10 @@ export class Parser {
                             'index of array must be typeof numeric',
                         );
                     }
+                    const indexAddressRegister = this.ir.findArrayIndex(
+                        identifier?.register || '',
+                        arrayIndex?.register || '',
+                    );
                     if (
                         !this.currentToken ||
                         this.currentToken?.type !== TokenType.EndArray
@@ -334,6 +481,10 @@ export class Parser {
                     ) {
                         this.currentToken = this.lexer.dropToken();
                         const result = this.expr();
+                        this.ir.storeInArray(
+                            indexAddressRegister,
+                            result?.register || '',
+                        );
                         if (result?.type !== TokenType.NumericType) {
                             this.symbolTable.error(
                                 `cannot assign ${result?.type} to ${TokenType.NumericType}`,
@@ -341,18 +492,22 @@ export class Parser {
                         }
                         return result;
                     }
+
                     return (
                         this.expr() || {
                             type: TokenType.NumericType,
-                            register: null,
+                            register:
+                                this.ir.loadFromArray(indexAddressRegister),
                         }
                     );
                 }
+                this.currentToken && this.lexer.getBackToken(this.currentToken);
+                this.currentToken = literalToken;
 
                 return (
-                    this.expr() || {
+                    this.addLiteralExpr() || {
                         type: identifier?.type,
-                        register: null,
+                        register: identifier?.register || null,
                     }
                 );
             case TokenType.TernaryIfOperator:
@@ -567,7 +722,8 @@ export class Parser {
                 );
             }
             this.currentToken = this.lexer.dropToken();
-
+            this.ir.assignment('r0', returnResult?.register || '');
+            this.ir.return();
             return true;
         }
         if (this.currentToken?.type === TokenType.StartBlock) {
@@ -640,6 +796,7 @@ export class Parser {
 
     public func(): funcResult {
         if (this.currentToken?.type === TokenType.Function) {
+            this.ir.setRegisterCounter(0);
             let funcName = '';
             this.currentToken = this.lexer.dropToken();
             if (
@@ -742,8 +899,9 @@ export class Parser {
     }
 
     public print() {
+        fs.writeFileSync('./test/2-byte.tes', '');
         for (const code of this.ir.byteCode) {
-            console.log(code);
+            fs.appendFileSync('./test/2-byte.tes', `${code}\n`);
         }
     }
 

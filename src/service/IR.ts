@@ -3,6 +3,14 @@ export class IR implements IRInterface {
     byteCode: string[] = [];
     LabelCounter = 0;
     RegisterCounter = 0;
+    private nativeFunctionsMap: Map<string, string> = new Map<string, string>();
+    constructor() {
+        this.nativeFunctionsMap.set('print', 'iput');
+        this.nativeFunctionsMap.set('Array', 'mem');
+        this.nativeFunctionsMap.set('len', 'len');
+        this.nativeFunctionsMap.set('input', 'iget');
+        this.nativeFunctionsMap.set('exit', 'ret');
+    }
 
     setRegisterCounter(number: number): void {
         this.RegisterCounter = number;
@@ -17,6 +25,7 @@ export class IR implements IRInterface {
         return register;
     }
     name(variable: string): string {
+        // maybe updating symbolTableNode.register ?!
         return this.temp();
     }
     temp(): string {
@@ -46,9 +55,12 @@ export class IR implements IRInterface {
                 operator = 'cmp>';
                 break;
             case TokenType.GreaterThanOrEqualOperator:
-                operator = 'cmp=';
+                operator = 'cmp>=';
                 break;
             case TokenType.LessThanOrEqualOperator:
+                operator = 'cmp<=';
+                break;
+            case TokenType.EqualOperator:
                 operator = 'cmp=';
                 break;
             case TokenType.PlusOperator:
@@ -76,7 +88,10 @@ export class IR implements IRInterface {
         this.byteCode.push(`jz ${r1}, ${label}`);
     }
     callFunction(name: string, args: string[]): void {
-        let code = `call ${name}, `;
+        const func = this.nativeFunctionsMap.has(name)
+            ? this.nativeFunctionsMap.get(name)
+            : name;
+        let code = `call ${func}, `;
         for (let i = 0; i < args.length; i++) {
             const arg = args[i];
             code += arg;
@@ -86,6 +101,63 @@ export class IR implements IRInterface {
         }
         this.byteCode.push(code);
     }
+    getInput(inputRegister: string) {
+        this.byteCode.push(`call iget, ${inputRegister}`);
+    }
+    defineArray(sizeRegister: string): string {
+        const arrayRegister = this.temp();
+        const sizeOfNumber = this.const(8);
+        this.operation(
+            arrayRegister,
+            sizeOfNumber,
+            sizeRegister,
+            TokenType.MultiplyOperator,
+        );
+        this.operation(
+            arrayRegister,
+            arrayRegister,
+            sizeOfNumber,
+            TokenType.PlusOperator,
+        );
+        this.byteCode.push(`call mem, ${arrayRegister}`);
+        return arrayRegister;
+    }
+
+    findArrayIndex(arrayRegister: string, indexRegister: string): string {
+        const indexAddressRegister = this.temp();
+        this.assignment(indexAddressRegister, indexRegister);
+        const sizeOfNumber = this.const(8);
+        const oneRegister = this.const(1);
+        this.operation(
+            indexAddressRegister,
+            indexAddressRegister,
+            oneRegister,
+            TokenType.PlusOperator,
+        );
+        this.operation(
+            indexAddressRegister,
+            indexAddressRegister,
+            sizeOfNumber,
+            TokenType.MultiplyOperator,
+        );
+        this.operation(
+            indexAddressRegister,
+            indexAddressRegister,
+            arrayRegister,
+            TokenType.PlusOperator,
+        );
+        return indexAddressRegister;
+    }
+    storeInArray(arrayRegisterAddress: string, valueRegister: string): void {
+        this.byteCode.push(`st ${valueRegister}, ${arrayRegisterAddress}`);
+    }
+
+    loadFromArray(arrayRegisterAddress: string): string {
+        const temp = this.temp();
+        this.byteCode.push(`ld ${temp}, ${arrayRegisterAddress}`);
+        return temp;
+    }
+
     defineFunction(name: string): void {
         this.byteCode.push('proc ' + name);
     }
