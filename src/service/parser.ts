@@ -302,18 +302,27 @@ export class Parser {
             return undefined;
         }
         switch (this.currentToken.type) {
+            // todo: not operator
             case TokenType.NotOperator:
                 this.currentToken = this.lexer.dropToken();
                 return this.expr();
-            // todo: do something about it
-            // case TokenType.PlusOperator:
-            //     this.currentToken = this.lexer.dropToken();
-            //     return this.expr();
-            // // todo: do something about it
-            // case TokenType.MinusOperator:
-            //     this.currentToken = this.lexer.dropToken();
-            //     return this.expr();
-            //todo: clist related [1,2]
+            case TokenType.PlusOperator:
+                this.currentToken = this.lexer.dropToken();
+                return this.expr();
+            case TokenType.MinusOperator:
+                this.currentToken = this.lexer.dropToken();
+                const expr = this.expr();
+                const negRegister = this.ir.const(-1);
+                this.ir.operation(
+                    negRegister,
+                    negRegister,
+                    expr?.register || '',
+                    TokenType.MultiplyOperator,
+                );
+                return {
+                    type: expr?.type,
+                    register: negRegister,
+                };
             case TokenType.StartArray:
                 this.currentToken = this.lexer.dropToken();
                 const elements = this.clist();
