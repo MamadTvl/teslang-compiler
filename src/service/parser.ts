@@ -1,4 +1,3 @@
-import { OperationType, exprResult } from './../types/index';
 import {
     bodyResult,
     clistResult,
@@ -7,6 +6,7 @@ import {
     flistResult,
     funcResult,
     FunctionParameter,
+    OperationType,
     stmtResult,
     SymbolNode,
     Token,
@@ -163,8 +163,11 @@ export class Parser {
             return undefined;
         }
         const first = this.NumericExpr();
+        if (!first) {
+            return undefined;
+        }
         let resultRegister = first?.register;
-        this.currentToken = this.lexer.dropToken();
+        // this.currentToken = this.lexer.dropToken();
         while (
             this.currentToken?.type === TokenType.MultiplyOperator ||
             this.currentToken?.type === TokenType.DivideOperator
@@ -200,6 +203,7 @@ export class Parser {
             if (this.currentToken?.type !== TokenType.CloseParen) {
                 this.error('Expected ")"');
             }
+            this.currentToken = this.lexer.dropToken();
             return expr;
         }
         if (this.currentToken.type === TokenType.Number) {
@@ -221,9 +225,11 @@ export class Parser {
             case TokenType.NotOperator:
                 this.currentToken = this.lexer.dropToken();
                 return this.expr();
+            // todo: do something about it
             case TokenType.PlusOperator:
                 this.currentToken = this.lexer.dropToken();
                 return this.expr();
+            // todo: do something about it
             case TokenType.MinusOperator:
                 this.currentToken = this.lexer.dropToken();
                 return this.expr();
@@ -349,49 +355,6 @@ export class Parser {
                         register: null,
                     }
                 );
-            case TokenType.Number:
-                const value = this.currentToken.value;
-                const currentRegister = this.ir.const(+value);
-                this.currentToken = this.lexer.dropToken();
-                if (
-                    this.currentToken &&
-                    [
-                        TokenType.MinusOperator,
-                        TokenType.PlusOperator,
-                        TokenType.MultiplyOperator,
-                        TokenType.DivideOperator,
-                        TokenType.ModulusOperator,
-                        TokenType.GreaterThanOperator,
-                        TokenType.LessThanOperator,
-                        TokenType.GreaterThanOrEqualOperator,
-                        TokenType.LessThanOrEqualOperator,
-                        TokenType.EqualOperator,
-                        TokenType.AndOperator,
-                        TokenType.OrOperator,
-                    ].includes(this.currentToken.type)
-                ) {
-                    const operatorType = this.currentToken.type;
-                    this.currentToken = this.lexer.dropToken();
-                    const exprResult = this.expr();
-                    // todo: check for errors
-                    const registerResult = this.ir.temp();
-                    exprResult?.register &&
-                        this.ir.operation(
-                            registerResult,
-                            currentRegister,
-                            exprResult.register,
-                            operatorType as OperationType,
-                        );
-                    return {
-                        type: TokenType.NumericType,
-                        register: registerResult,
-                    };
-                }
-                // check for left and mov
-                return {
-                    type: TokenType.NumericType,
-                    register: currentRegister,
-                };
             case TokenType.TernaryIfOperator:
                 this.currentToken = this.lexer.dropToken();
                 const firstType = this.expr();
@@ -405,9 +368,36 @@ export class Parser {
                 this.currentToken = this.lexer.dropToken();
                 const secondType = this.expr();
                 return firstType || secondType;
-            default:
-                return undefined;
         }
+        const first = this.multiplyExpr();
+        if (!first) {
+            return undefined;
+        }
+        let resultRegister = first?.register;
+        // this.currentToken = this.lexer.dropToken();
+        while (
+            this.currentToken?.type === TokenType.PlusOperator ||
+            this.currentToken?.type === TokenType.MinusOperator
+        ) {
+            const operationType = this.currentToken.type;
+            this.currentToken = this.lexer.dropToken();
+            const second = this.multiplyExpr();
+            const secondRegister = second?.register;
+            const tempRegister = this.ir.temp();
+            resultRegister &&
+                secondRegister &&
+                this.ir.operation(
+                    tempRegister,
+                    resultRegister,
+                    secondRegister,
+                    operationType,
+                );
+            resultRegister = tempRegister;
+        }
+        return {
+            type: TokenType.NumericType,
+            register: resultRegister,
+        };
     }
 
     public stmt(): stmtResult {
@@ -571,7 +561,6 @@ export class Parser {
                 true,
                 true,
             );
-            // this.lexer.debug(currentFunctionSymbol, this.getScope());
             if (currentFunctionSymbol?.returnType !== returnResult?.type) {
                 this.symbolTable.error(
                     `returning value from wrong type (${returnResult?.type}) from function ${this.currentFunction} [excepted ${currentFunctionSymbol?.returnType}]`,
