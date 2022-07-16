@@ -187,7 +187,7 @@ export class Parser {
             resultRegister = tempRegister;
         }
         return {
-            type: TokenType.NumericType,
+            type: first.type,
             register: resultRegister || null,
         };
     }
@@ -588,7 +588,6 @@ export class Parser {
         if (this.currentToken?.type === TokenType.For) {
             let arrayItemIdentifier: string | undefined;
             let arrayIndexIdentifier: string | undefined;
-            let arrayIdentifier: string | undefined;
             this.currentToken = this.lexer.dropToken();
             if (
                 !this.currentToken ||
@@ -623,22 +622,28 @@ export class Parser {
                 this.error('Expected "<-"');
             }
             this.currentToken = this.lexer.dropToken();
+            const arrayItemRegister = this.ir.temp();
+            const arrayIndexRegister = this.ir.temp();
             arrayItemIdentifier &&
                 this.symbolTable.insert(arrayItemIdentifier, {
                     isFunction: false,
                     type: TokenType.NumericType,
                     scope: this.getScope(undefined, this.currentScope + 1),
-                    register: this.ir.temp(),
+                    register: arrayItemRegister,
                 });
             arrayIndexIdentifier &&
                 this.symbolTable.insert(arrayIndexIdentifier, {
                     isFunction: false,
                     type: TokenType.NumericType,
                     scope: this.getScope(undefined, this.currentScope + 1),
-                    register: this.ir.temp(),
+                    register: arrayIndexRegister,
                 });
             const array = this.expr();
-            // this.currentToken = this.lexer.dropToken();
+            if (array?.type !== TokenType.ArrayType) {
+                this.symbolTable.error(
+                    `Expected Array type but got ${array?.type}`,
+                );
+            }
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.Colon
@@ -646,7 +651,42 @@ export class Parser {
                 this.error('Expected ":"');
             }
             this.currentToken = this.lexer.dropToken();
-            return this.stmt();
+
+            const beginLabel = this.ir.label();
+            const endLabel = this.ir.label();
+            this.ir.assignment(arrayIndexRegister, 0);
+            const arrayLenRegister = this.ir.loadFromArray(
+                array?.register || '',
+            );
+            const compare = this.ir.temp();
+            this.ir.setLabel(beginLabel);
+            this.ir.operation(
+                compare,
+                arrayIndexRegister,
+                arrayLenRegister,
+                TokenType.LessThanOperator,
+            );
+            this.ir.ifNot(compare, endLabel);
+            this.ir.assignment(
+                arrayItemRegister,
+                this.ir.loadFromArray(
+                    this.ir.findArrayIndex(
+                        array?.register || '',
+                        arrayIndexRegister,
+                    ),
+                ),
+            );
+            this.stmt();
+            this.ir.operation(
+                arrayIndexRegister,
+                arrayIndexRegister,
+                this.ir.const(1),
+                TokenType.PlusOperator,
+            );
+            this.ir.jump(beginLabel);
+
+            this.ir.setLabel(endLabel);
+            return true;
         }
         if (this.currentToken?.type === TokenType.Return) {
             this.currentToken = this.lexer.dropToken();
