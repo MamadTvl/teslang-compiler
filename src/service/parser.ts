@@ -365,22 +365,22 @@ export class Parser {
                     type: resultExpr?.type,
                     register: resultRegister,
                 };
-            case TokenType.PlusOperator:
-                this.currentToken = this.lexer.dropToken();
-                return this.expr();
             case TokenType.MinusOperator:
+            case TokenType.PlusOperator:
+                const result = this.ir.const(
+                    this.currentToken.type === TokenType.MinusOperator ? -1 : 1,
+                );
                 this.currentToken = this.lexer.dropToken();
                 const expr = this.expr();
-                const negRegister = this.ir.const(-1);
                 this.ir.operation(
-                    negRegister,
-                    negRegister,
+                    result,
+                    result,
                     expr?.register || '',
                     TokenType.MultiplyOperator,
                 );
                 return {
                     type: expr?.type,
-                    register: negRegister,
+                    register: result,
                 };
             case TokenType.StartArray:
                 this.currentToken = this.lexer.dropToken();
