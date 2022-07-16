@@ -341,10 +341,30 @@ export class Parser {
             return undefined;
         }
         switch (this.currentToken.type) {
-            // todo: not operator
             case TokenType.NotOperator:
                 this.currentToken = this.lexer.dropToken();
-                return this.expr();
+                const resultExpr = this.expr();
+                const resultRegister = this.ir.temp();
+                const trueRegister = this.ir.const(1);
+                const falseRegister = this.ir.const(0);
+                const trueLabel = this.ir.label();
+                const falseLabel = this.ir.label();
+                this.ir.operation(
+                    resultRegister,
+                    resultExpr?.register || '',
+                    trueRegister,
+                    TokenType.EqualOperator,
+                );
+                this.ir.if(resultRegister, falseLabel);
+                this.ir.assignment(resultRegister, trueRegister);
+                this.ir.jump(trueLabel);
+                this.ir.setLabel(falseLabel);
+                this.ir.assignment(resultRegister, falseRegister);
+                this.ir.setLabel(trueLabel);
+                return {
+                    type: resultExpr?.type,
+                    register: resultRegister,
+                };
             case TokenType.PlusOperator:
                 this.currentToken = this.lexer.dropToken();
                 return this.expr();
