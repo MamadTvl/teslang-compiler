@@ -26,8 +26,8 @@ export class Parser {
     private currentRegister: string | null = null;
     private lexer: Lexer;
     private parserError;
-    private panicking = false;
-    private ir: IR = new IR();
+    public panicking = false;
+    private ir: IR;
     private synchronizingSet: Array<TokenType> = [
         TokenType.SemiColon,
         // TokenType.AssignmentOperator,
@@ -39,11 +39,13 @@ export class Parser {
         currentToken: Token | undefined,
         lexer: Lexer,
         private symbolTable: SymbolTable,
+        ir: IR,
     ) {
         this.currentToken = currentToken;
         this.lexer = lexer;
         this.symbolTable = symbolTable;
         this.parserError = new ParserError(lexer);
+        this.ir = ir;
     }
 
     private getScope(functionName?: string, scope?: number): string {
@@ -59,6 +61,7 @@ export class Parser {
     ): void {
         const expectedParams = func.parameters as FunctionParameter[];
         if (expectedParams.length !== inputParams.length) {
+            this.panicking = true;
             this.symbolTable.error(
                 `expected ${expectedParams.length} input parameters but got ${inputParams.length} for function ${funcName}`,
             );
@@ -66,6 +69,7 @@ export class Parser {
         }
         for (let i = 0; i < expectedParams.length; i++) {
             if (expectedParams[i].type !== inputParams[i]) {
+                this.panicking = true;
                 this.symbolTable.error(
                     `expected ${expectedParams[i].type} but got ${
                         inputParams[i] || 'undefined'
@@ -98,6 +102,7 @@ export class Parser {
         const result = this.expr();
 
         if (!result?.type && this.currentToken?.type === TokenType.Comma) {
+            this.panicking = true;
             this.symbolTable.error(
                 'expected numeric or array or none type here',
             );
@@ -146,6 +151,7 @@ export class Parser {
                         exprResult?.register,
                     );
                 if (identifierType !== exprResult?.type) {
+                    this.panicking = true;
                     this.symbolTable.error(
                         `cannot assign ${exprResult?.type} to ${identifierType}`,
                     );
@@ -340,7 +346,6 @@ export class Parser {
 
     private ignoreLiteralCase = false;
     private expr(): exprResult | undefined {
-        // TODO: check Array len
         if (!this.currentToken) {
             return undefined;
         }
@@ -394,11 +399,13 @@ export class Parser {
                 for (let i = 0; i < elements.length; i++) {
                     const element = elements[i];
                     if (element.type !== TokenType.NumericType) {
+                        this.panicking = true;
                         this.symbolTable.error(
                             `Expected numeric type but got ${element.type}`,
                         );
                     }
                     if (!element.register) {
+                        this.panicking = true;
                         this.symbolTable.error(
                             `Expected number but got undefined`,
                         );
@@ -447,6 +454,7 @@ export class Parser {
                             result?.register,
                         );
                     if (identifier?.type !== result?.type) {
+                        this.panicking = true;
                         this.symbolTable.error(
                             `Cannot assign ${result} to ${identifier?.type}`,
                         );
@@ -508,12 +516,14 @@ export class Parser {
                 if (this.currentToken?.type === TokenType.StartArray) {
                     this.currentToken = this.lexer.dropToken();
                     if (identifier?.type !== TokenType.ArrayType) {
+                        this.panicking = true;
                         this.symbolTable.error(
                             `${identifier} must be typeof Array`,
                         );
                     }
                     const arrayIndex = this.expr();
                     if (arrayIndex?.type !== TokenType.NumericType) {
+                        this.panicking = true;
                         this.symbolTable.error(
                             'index of array must be typeof numeric',
                         );
@@ -539,6 +549,7 @@ export class Parser {
                             result?.register || '',
                         );
                         if (result?.type !== TokenType.NumericType) {
+                            this.panicking = true;
                             this.symbolTable.error(
                                 `cannot assign ${result?.type} to ${TokenType.NumericType}`,
                             );
@@ -586,6 +597,7 @@ export class Parser {
             this.ir.assignment(resultRegister, secondExpr?.register || '');
             this.ir.setLabel(endLabel);
             if (firstExpr?.type !== secondExpr?.type) {
+                this.panicking = true;
                 this.symbolTable.error(
                     `in ternary operation, the 2 expression must have equal types (? [${firstExpr?.type}] : [${secondExpr?.type}])`,
                 );
@@ -736,6 +748,7 @@ export class Parser {
                 });
             const array = this.expr();
             if (array?.type !== TokenType.ArrayType) {
+                this.panicking = true;
                 this.symbolTable.error(
                     `Expected Array type but got ${array?.type}`,
                 );
@@ -801,6 +814,7 @@ export class Parser {
                 true,
             );
             if (currentFunctionSymbol?.returnType !== returnResult?.type) {
+                this.panicking = true;
                 this.symbolTable.error(
                     `returning value from wrong type (${returnResult?.type}) from function ${this.currentFunction} [excepted ${currentFunctionSymbol?.returnType}]`,
                 );
@@ -978,19 +992,23 @@ export class Parser {
         return this.func();
     }
 
-    public run(): void {
+    public run(): boolean {
         while (this.currentToken) {
             this.currentScope = 0;
-            this.proc();
-            this.print();
+            if (!this.proc()) {
+                break;
+            }
         }
-    }
-
-    public print() {
-        fs.writeFileSync('./test/2-byte.tes', '');
-        for (const code of this.ir.byteCode) {
-            fs.appendFileSync('./test/2-byte.tes', `${code}\n`);
+        const mainFunc = this.symbolTable.lookup(
+            'main',
+            this.getScope(),
+            true,
+            true,
+        );
+        if (!mainFunc) {
+            this.panicking = true;
         }
+        return !this.panicking;
     }
 
     public error(message: string): void {

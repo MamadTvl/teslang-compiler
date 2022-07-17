@@ -120,6 +120,8 @@ export class Lexer {
                 value: result.join(''),
             };
         }
+        console.log(`Lexer Error: unknown character [${this._currentToken}]`);
+        this._currentToken = this.read();
         return null;
     }
 
@@ -221,6 +223,9 @@ export class Lexer {
                     return token;
                 } else if (token === undefined) {
                     break;
+                }
+                if (token === null) {
+                    continue;
                 }
             }
         }

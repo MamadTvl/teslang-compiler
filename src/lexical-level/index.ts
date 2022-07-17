@@ -1,7 +1,7 @@
 import { Lexer } from '../service/lexer';
 
 const main = async () => {
-    const lexer = new Lexer('test/index.teslang');
+    const lexer = new Lexer('test/index.log');
     lexer.readable.on('readable', () => {
         while (true) {
             const token = lexer.dropToken();
