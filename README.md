@@ -25,4 +25,7 @@ npm run start:lexical or yarn start:lexical
 ### analysis level
 ```
 npm run start:analysis or yarn start:analysis 
+
+## compile and run
+npm run start <TesLang source path> or yarn start <TesLang source path> 
 ```
