@@ -337,6 +337,7 @@ export class Parser {
 
     private ignoreLiteralCase = false;
     private expr(): exprResult | undefined {
+        // TODO: check Array len
         if (!this.currentToken) {
             return undefined;
         }
@@ -559,7 +560,7 @@ export class Parser {
                         register: identifier?.register || null,
                     }
                 );
-            // todo:
+            // FIXME: TernaryIfOperator
             case TokenType.TernaryIfOperator:
                 this.currentToken = this.lexer.dropToken();
                 const firstType = this.expr();
@@ -633,8 +634,11 @@ export class Parser {
             }
         }
         if (this.currentToken?.type === TokenType.Loop) {
-            this.expr();
             this.currentToken = this.lexer.dropToken();
+            const beginLabel = this.ir.label();
+            const endLabel = this.ir.label();
+            this.ir.setLabel(beginLabel);
+            const condition = this.conditionalExpr();
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.Colon
@@ -642,7 +646,11 @@ export class Parser {
                 this.error('Expected ":"');
             }
             this.currentToken = this.lexer.dropToken();
-            return this.stmt();
+            this.ir.ifNot(condition?.register || '', endLabel);
+            const stmtResult = this.stmt();
+            this.ir.jump(beginLabel);
+            this.ir.setLabel(endLabel);
+            return stmtResult;
         }
         if (this.currentToken?.type === TokenType.For) {
             let arrayItemIdentifier: string | undefined;
@@ -920,6 +928,7 @@ export class Parser {
                     this.currentToken = this.lexer.dropToken();
                     return true;
                 } else {
+                    // TODO: inline function
                     this.expr();
                     return true;
                 }
