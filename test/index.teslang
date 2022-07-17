@@ -1,4 +1,4 @@
-fc find(A : array, n : numeric) -> numeric : {
+fc find(A : array, a : numeric) -> numeric : {
     let n : numeric;
     let forked : numeric;
     for a, i <- A : {
@@ -29,9 +29,10 @@ fc main() -> array : {
     let array_Length : array = len(A);
     let b : array = a == 2 ? [4,2,1] : 5;
     let b : array = a == 2 ? [4,2,1] : [5];
-    A[a] = [1,2,3]
-    A[1] = 5;
-    A[2] = 5;
+    A[a] = [1,2,3];
+    let sum : numeric = 3;
+    A[1] = 5 + 2 + 3 * 4 ; 
+    A[2] = a + a +  a * a ; 
     print(a);
     print(A[0]);
     find([1,2,3], 2);
@@ -47,4 +48,14 @@ fc GG(A : array) -> none : {
     for a, i <- A : {
         print(a);
     }
+}
+
+fc sum3(a : numeric, b : numeric, c : numeric) -> numeric :{
+    let sum : numeric = 0;
+    sum = a + b + c + 5 + 2 + 3 * 4 ;
+    return sum;
+}
+
+fc print_number(number: numeric) -> none : {
+    print(number);
 }

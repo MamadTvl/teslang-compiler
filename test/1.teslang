@@ -1,0 +1,8 @@
+fc main() -> numeric : {
+    let condition : numeric = 1 < 3;
+    let i: numeric = condition ? 10 : 40;
+    if condition or 0 : {
+        print(i);
+    }
+    return 0;
+}

@@ -338,20 +338,6 @@ export class Parser {
         };
     }
 
-    private ternaryExpr(): exprResult | undefined {
-        if (!this.currentToken) {
-            return undefined;
-        }
-        if (this.currentToken.type === TokenType.Literal) {
-            const name = this.currentToken.value;
-            const identifier = this.symbolTable.lookup(
-                name,
-                this.getScope(),
-                true,
-            );
-        }
-        return this.expr();
-    }
     private ignoreLiteralCase = false;
     private expr(): exprResult | undefined {
         // TODO: check Array len
@@ -580,13 +566,14 @@ export class Parser {
         }
         const compareResult = this.compareExpr();
         if ((this.currentToken.type as any) === TokenType.TernaryIfOperator) {
-            console.log(compareResult);
             const resultRegister = this.ir.temp();
             const elseLabel = this.ir.label();
+            const endLabel = this.ir.label();
             this.ir.ifNot(compareResult?.register || '', elseLabel);
             this.currentToken = this.lexer.dropToken();
             const firstExpr = this.expr();
             this.ir.assignment(resultRegister, firstExpr?.register || '');
+            this.ir.jump(endLabel);
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.Colon
@@ -594,9 +581,10 @@ export class Parser {
                 this.error('Expected ":"');
             }
             this.currentToken = this.lexer.dropToken();
-            const secondExpr = this.expr();
             this.ir.setLabel(elseLabel);
+            const secondExpr = this.expr();
             this.ir.assignment(resultRegister, secondExpr?.register || '');
+            this.ir.setLabel(endLabel);
             if (firstExpr?.type !== secondExpr?.type) {
                 this.symbolTable.error(
                     `in ternary operation, the 2 expression must have equal types (? [${firstExpr?.type}] : [${secondExpr?.type}])`,
