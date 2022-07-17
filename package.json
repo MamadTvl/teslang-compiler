@@ -18,9 +18,15 @@
     "fix": "gts fix",
     "start:lexical": "node dist/lexical-level/index.js",
     "start:analysis": "node dist/analysis-level/index.js",
+    "start": "node dist/run/index.js",
     "prepare": "npm run compile",
     "pretest": "npm run compile",
     "posttest": "npm run lint"
+  },
+  "pkg": {
+    "scripts": "dist/run/index.js",
+    "assets": "src/service/tsvm",
+    "targets": [ "node14-linux-arm64" ]
   },
   "devDependencies": {
     "gts": "^3.1.0",
