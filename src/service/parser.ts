@@ -296,25 +296,28 @@ export class Parser {
         };
     }
 
-    private conditionalExpr(): exprResult | undefined {
+    private conditionalExpr(
+        first: exprResult | undefined,
+        nextType: TokenType.AndOperator | TokenType.OrOperator,
+    ): exprResult | undefined {
         if (!this.currentToken) {
             return undefined;
         }
-        const nextToken = this.lexer.dropToken();
-        if (!nextToken) {
-            return undefined;
-        }
-        this.lexer.getBackToken(nextToken);
-        const first = this.expr();
+        // const nextToken = this.lexer.dropToken();
+        // if (!nextToken) {
+        //     return undefined;
+        // }
+        // this.lexer.getBackToken(nextToken);
+        // const first = this.expr();
         if (!first) {
             return undefined;
         }
         const resultRegister = first.register;
         const tempRegister = this.ir.const(
-            nextToken.type === TokenType.AndOperator ? 0 : 1,
+            nextType === TokenType.AndOperator ? 0 : 1,
         );
         const outLabel = this.ir.label();
-        if (nextToken.type === TokenType.AndOperator) {
+        if (nextType === TokenType.AndOperator) {
             this.ir.ifNot(first.register || '', outLabel);
         } else {
             this.ir.if(first.register || '', outLabel);
@@ -324,7 +327,7 @@ export class Parser {
             this.currentToken?.type === TokenType.OrOperator
         ) {
             this.currentToken = this.lexer.dropToken();
-            const second = this.conditionalExpr();
+            const second = this.expr();
             this.ir.assignment(tempRegister, second?.register || '');
             this.ir.assignment(resultRegister || '', tempRegister || '');
         }
@@ -335,6 +338,20 @@ export class Parser {
         };
     }
 
+    private ternaryExpr(): exprResult | undefined {
+        if (!this.currentToken) {
+            return undefined;
+        }
+        if (this.currentToken.type === TokenType.Literal) {
+            const name = this.currentToken.value;
+            const identifier = this.symbolTable.lookup(
+                name,
+                this.getScope(),
+                true,
+            );
+        }
+        return this.expr();
+    }
     private ignoreLiteralCase = false;
     private expr(): exprResult | undefined {
         // TODO: check Array len
@@ -560,22 +577,46 @@ export class Parser {
                         register: identifier?.register || null,
                     }
                 );
-            // FIXME: TernaryIfOperator
-            case TokenType.TernaryIfOperator:
-                this.currentToken = this.lexer.dropToken();
-                const firstType = this.expr();
-                // this.currentToken = this.lexer.dropToken();
-                if (
-                    !this.currentToken ||
-                    this.currentToken.type !== TokenType.Colon
-                ) {
-                    this.error('Expected ":"');
-                }
-                this.currentToken = this.lexer.dropToken();
-                const secondType = this.expr();
-                return firstType || secondType;
         }
-        return this.compareExpr();
+        const compareResult = this.compareExpr();
+        if ((this.currentToken.type as any) === TokenType.TernaryIfOperator) {
+            console.log(compareResult);
+            const resultRegister = this.ir.temp();
+            const elseLabel = this.ir.label();
+            this.ir.ifNot(compareResult?.register || '', elseLabel);
+            this.currentToken = this.lexer.dropToken();
+            const firstExpr = this.expr();
+            this.ir.assignment(resultRegister, firstExpr?.register || '');
+            if (
+                !this.currentToken ||
+                this.currentToken.type !== TokenType.Colon
+            ) {
+                this.error('Expected ":"');
+            }
+            this.currentToken = this.lexer.dropToken();
+            const secondExpr = this.expr();
+            this.ir.setLabel(elseLabel);
+            this.ir.assignment(resultRegister, secondExpr?.register || '');
+            if (firstExpr?.type !== secondExpr?.type) {
+                this.symbolTable.error(
+                    `in ternary operation, the 2 expression must have equal types (? [${firstExpr?.type}] : [${secondExpr?.type}])`,
+                );
+            }
+            return {
+                type: firstExpr?.type,
+                register: resultRegister,
+            };
+        }
+        if (
+            (this.currentToken.type as any) === TokenType.AndOperator ||
+            (this.currentToken.type as any) === TokenType.OrOperator
+        ) {
+            return this.conditionalExpr(
+                compareResult,
+                this.currentToken.type as any,
+            );
+        }
+        return compareResult;
     }
 
     public stmt(): stmtResult {
@@ -605,7 +646,7 @@ export class Parser {
         }
         if (this.currentToken.type === TokenType.If) {
             this.currentToken = this.lexer.dropToken();
-            const condition = this.conditionalExpr();
+            const condition = this.expr();
             const outLabel = this.ir.label();
             if (
                 !this.currentToken ||
@@ -638,7 +679,7 @@ export class Parser {
             const beginLabel = this.ir.label();
             const endLabel = this.ir.label();
             this.ir.setLabel(beginLabel);
-            const condition = this.conditionalExpr();
+            const condition = this.expr();
             if (
                 !this.currentToken ||
                 this.currentToken.type !== TokenType.Colon
