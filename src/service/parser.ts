@@ -445,6 +445,7 @@ export class Parser {
                         this.getScope(),
                         true,
                     );
+
                     this.currentToken = this.lexer.dropToken();
                     const result = this.expr();
                     identifier?.register &&
@@ -456,7 +457,7 @@ export class Parser {
                     if (identifier?.type !== result?.type) {
                         this.panicking = true;
                         this.symbolTable.error(
-                            `Cannot assign ${result} to ${identifier?.type}`,
+                            `Cannot assign ${result?.type} to ${identifier?.type}`,
                         );
                     }
                     return result;
