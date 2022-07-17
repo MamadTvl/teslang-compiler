@@ -957,8 +957,11 @@ export class Parser {
                     this.currentToken = this.lexer.dropToken();
                     return true;
                 } else {
-                    // TODO: inline function
-                    this.expr();
+                    this.currentScope++;
+                    const expr = this.expr();
+                    this.ir.assignment('r0', expr?.register || '');
+                    this.ir.return();
+                    this.currentScope--;
                     return true;
                 }
             } else {
