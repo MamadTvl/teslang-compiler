@@ -1,0 +1,16 @@
+fc find(num: numeric, A: array) -> numeric : {
+    for a, j <- A : {
+        if a == num : {
+            return j;
+        }
+    }
+}
+
+fc main() -> numeric : {
+    let A: array = Array(10);
+    for a, j <- A : {
+        A[j] = j;
+    }
+    print(find(2, A));
+    return 0;
+}

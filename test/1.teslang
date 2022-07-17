@@ -1,8 +1,18 @@
+fc inline(a: numeric, b: numeric) -> numeric : a + b
+
+fc n() -> numeric : {
+    let i : numeric;
+}
+
 fc main() -> numeric : {
-    let condition : numeric = 1 < 3;
+    let condition : numeric = input();
     let i: numeric = condition ? 10 : 40;
     if condition or 0 : {
+        print(inline(i, 3));
+    }
+    loop j < 50 : {
         print(i);
+        i = i + 1;
     }
     return 0;
 }

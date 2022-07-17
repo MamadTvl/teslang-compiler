@@ -1,0 +1,13 @@
+running test/error.teslang
+Semantic Error: identifier k not found at 5:20
+Syntax Error: Expected "}" but got "i" on 8:10 
+Semantic Error: Function find already exists at 10:47
+Semantic Error: identifier A already exists at 10:47
+Semantic Error: identifier n already exists at 10:47
+Semantic Error: identifier n already exists at 11:21
+Semantic Error: identifier a already exists at 13:18
+Semantic Error: identifier i already exists at 13:18
+Semantic Error: identifier k not found at 14:20
+Semantic Error: returning value from wrong type (ArrayType) from function find [excepted NumericType] at 15:22
+Syntax Error: Expected "}" but got "i" on 17:10 
+Semantic Error: function main not found at 19:11

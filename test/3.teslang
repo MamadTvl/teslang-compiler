@@ -1,0 +1,11 @@
+fc sum2(a : numeric, b: numeric) -> numeric : {
+    let sum: numeric = 0;
+    sum = a + b;
+    return sum;
+}
+
+
+fc main() -> numeric : {
+    print(sum2(10, 20));
+    return 0;
+}

@@ -1,0 +1,40 @@
+proc inline
+    add r2, r0, r1
+    mov r0, r2
+    ret
+proc n
+proc main
+    call iget, r1
+    mov r0, r1
+    jz r0, Label0
+    mov r4, 10
+    mov r3, r4
+    jmp Label1
+Label0:
+    mov r5, 40
+    mov r3, r5
+Label1:
+    mov r2, r3
+    mov r6, 1
+    jnz r0, Label2
+    mov r7, 0
+    mov r6, r7
+    mov r0, r6
+Label2:
+    jz r0, Label3
+    mov r8, 3
+    call inline, r2, r8
+    call iput, r2
+Label3:
+Label4:
+    mov r9, 50
+    jz r10, Label5
+    call iput, r2
+    mov r11, 1
+    add r12, r2, r11
+    mov r2, r12
+    jmp Label4
+Label5:
+    mov r13, 0
+    mov r0, r13
+    ret

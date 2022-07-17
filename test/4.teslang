@@ -1,0 +1,10 @@
+fc main() -> numeric : {
+    let A: array = Array(10);
+    for a, i <- A : {
+        A[i] = i + 1;
+    }
+    for b, j <- A : {
+        print(b);
+    }
+    return 0;
+}

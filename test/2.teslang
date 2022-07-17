@@ -1,9 +1,3 @@
-#fc sum3(a : numeric, b: numeric) -> numeric : {
-#    let sum: numeric = 0;
-#    sum = (a * (b + 1) )/ (6 * 4) ;
-#    return sum;
-#}
-
 fc gcd(a : numeric, b: numeric) -> numeric : {
     if b == 0 : {
         return a;
@@ -14,28 +8,6 @@ fc gcd(a : numeric, b: numeric) -> numeric : {
 
 
 fc main() -> numeric : {
-#    let sum : numeric = 0;
-#    sum = 5 + 2 / 900 -13 * 54;
-#    #print(sum);
-    let A : array;
-    let n : numeric = 100;
-    A = Array(n);
-    #A = [1, 2, 3]; # define an array
-#    A[2] = 700;
-#    print(1 + 3 % 2);
-    let a: numeric = -10;
-    if 1 and 0 : {
-        print(1);
-    }
-    #print(a);
-    #print(gcd(input(), input()));
-#    if 4 >= 1 % n  : {
-#        print(sum3(input(),input()));
-#    } ifnot :  {
-#        print(100);
-#    }
-    for b, i <- A : {
-        print(i * 190);
-    }
+    print(gcd(input(), input()));
     return 0;
 }

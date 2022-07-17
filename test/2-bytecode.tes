@@ -1,0 +1,21 @@
+proc gcd
+    mov r2, 0
+    cmp= r3, r1, r2
+    jz r3, Label0
+    mov r0, r0
+    ret
+Label0:
+    jnz r3, Label1
+    mod r4, r0, r1
+    call gcd, r1, r4
+    mov r0, r1
+    ret
+Label1:
+proc main
+    call iget, r0
+    call iget, r1
+    call gcd, r0, r1
+    call iput, r0
+    mov r2, 0
+    mov r0, r2
+    ret
